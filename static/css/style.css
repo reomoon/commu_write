@@ -1,0 +1,323 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  --bg: #f5f5f7;
+  --bg2: #ffffff;
+  --bg3: #f0f0f2;
+  --card: #ffffff;
+  --border: #e0e0e5;
+  --border-light: #ebebef;
+  --accent: #e94560;
+  --text: #1a1a2e;
+  --text-dim: #666680;
+  --text-muted: #aaaabd;
+  --rank1: #e8a000;
+  --rank2: #888;
+  --rank3: #b07030;
+  --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  --radius: 10px;
+}
+
+html {
+  font-size: 15px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 60px;
+}
+
+/* ===== Header ===== */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+}
+
+.logo {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ===== Sentinel (무한스크롤 트리거) ===== */
+.sentinel {
+  height: 1px;
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, transform 0.3s;
+}
+
+.refresh-btn:active {
+  color: var(--accent);
+}
+
+.refresh-btn.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Main Tabs ===== */
+.main-tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 50px;
+  z-index: 90;
+}
+
+.main-tab {
+  flex: 1;
+  padding: 11px 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 0.93rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.main-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.main-tab.active {
+  color: var(--accent);
+}
+
+.main-tab.active::after {
+  transform: scaleX(1);
+}
+
+/* ===== Section ===== */
+.section {
+  display: none;
+}
+
+.section.active {
+  display: block;
+}
+
+/* ===== Sub Tabs ===== */
+.sub-tabs {
+  display: flex;
+  overflow-x: auto;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  position: sticky;
+  top: 94px;
+  z-index: 80;
+}
+
+.sub-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.sub-tab {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.sub-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.sub-tab.active {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.sub-tab.active::after {
+  transform: scaleX(1);
+}
+
+/* ===== List Container ===== */
+.list-container {
+  padding: 6px 0;
+  background: #fff;
+}
+
+/* ===== Post Item ===== */
+.post-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-light);
+  gap: 11px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.post-item:active {
+  background: var(--bg3);
+}
+
+.post-item:last-child {
+  border-bottom: none;
+}
+
+/* 랭크 번호 */
+.post-rank {
+  min-width: 20px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+  padding-top: 2px;
+  color: var(--text-muted);
+  letter-spacing: -0.5px;
+}
+
+.post-rank.r1 { color: var(--rank1); }
+.post-rank.r2 { color: var(--rank2); }
+.post-rank.r3 { color: var(--rank3); }
+
+/* 게시글 제목 */
+.post-title {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* HOT 뱃지 */
+.post-hot {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(233,69,96,0.08);
+  border: 1px solid rgba(233,69,96,0.25);
+  border-radius: 4px;
+  padding: 2px 5px;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+}
+
+/* ===== Skeleton ===== */
+.skeleton-list {
+  padding: 6px 0;
+  background: #fff;
+}
+
+.skeleton-item {
+  height: 50px;
+  margin: 0 16px 1px;
+  background: linear-gradient(90deg, #f0f0f2 25%, #e4e4e8 50%, #f0f0f2 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ===== Error / Empty ===== */
+.error-msg, .empty-msg {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.error-msg {
+  color: var(--accent);
+}
+
+/* ===== Footer ===== */
+.footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ===== 반응형 ===== */
+@media (min-width: 480px) {
+  body {
+    background: #ececf0;
+  }
+}
