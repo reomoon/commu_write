@@ -68,6 +68,19 @@ def strip_comment_count(text):
     return text
 
 
+_POLITICS_KEYWORDS = {
+    '국민의힘', '민주당', '더불어민주당', '정의당', '개혁신당',
+    '국회의원', '국회', '탄핵', '탄핵소추',
+    '윤석열', '이재명', '한덕수', '이준석', '홍준표',
+    '여당', '야당', '여야', '총선', '대선', '지방선거',
+    '국정감사', '인사청문회', '개헌', '헌법재판소',
+    '검찰개혁', '사법개혁',
+}
+
+def _is_politics(title: str) -> bool:
+    return any(kw in title for kw in _POLITICS_KEYWORDS)
+
+
 def get_inven():
     """인벤 오픈이슈 오늘의 화제 top10"""
     soup = fetch("https://m.inven.co.kr/board/webzine/2097/")
@@ -105,7 +118,7 @@ def get_inven():
 
 
 def get_bobaedream():
-    """보배드림 베스트글"""
+    """보배드림 베스트글 (정치 글 제외)"""
     soup = fetch("https://m.bobaedream.co.kr/board/new_writing/best")
     if not soup:
         return []
@@ -129,6 +142,10 @@ def get_bobaedream():
         title = txt_el.get_text(strip=True)
 
         if not title or title in seen:
+            continue
+
+        # 정치X 필터
+        if _is_politics(title):
             continue
 
         if not href.startswith("http"):
@@ -179,8 +196,8 @@ def get_fmkorea():
 
 
 def get_dogdrip():
-    """개드립 인기글"""
-    soup = fetch("https://www.dogdrip.net/dogdrip", headers=DOGDRIP_HEADERS)
+    """개드립 인기글 (Cloudflare 우회)"""
+    soup = fetch_cf("https://www.dogdrip.net/dogdrip")
     if not soup:
         return []
 
@@ -194,7 +211,11 @@ def get_dogdrip():
         if not re.match(r'^/dogdrip/\d+', href):
             continue
 
-        title = a.get_text(strip=True)
+        # 제목 전용 요소 우선, 없으면 a 텍스트
+        title_el = a.select_one(".title, .subject, strong")
+        title = title_el.get_text(strip=True) if title_el else a.get_text(strip=True)
+        title = strip_comment_count(title)
+
         if not title or len(title) < 3 or title in seen:
             continue
 
@@ -283,13 +304,19 @@ def get_dcinside():
             continue
         href = a.get("href", "")
 
-        # 공지 게시물 제외
-        no_match = re.search(r'no=(\d+)', href)
-        if no_match and no_match.group(1) in NOTICE_NOS:
+        # id와 no만 추출해서 PC URL로 재구성 (_dcbest 등 불필요한 파라미터 제거)
+        id_match = re.search(r'[?&]id=([^&]+)', href)
+        no_match = re.search(r'[?&]no=(\d+)', href)
+        if not id_match or not no_match:
             continue
 
-        if not href.startswith("http"):
-            href = "https://m.dcinside.com" + href
+        gall_id = id_match.group(1)
+        gall_no = no_match.group(1)
+
+        if gall_no in NOTICE_NOS:
+            continue
+
+        href = f"https://gall.dcinside.com/board/view/?id={gall_id}&no={gall_no}"
 
         seen.add(title)
         items.append({"rank": rank, "title": title, "url": href})
@@ -370,7 +397,7 @@ def get_mlbpark():
 SCRAPERS = {
     "inven": get_inven,
     "bobaedream": get_bobaedream,
-    "dogdrip": get_dogdrip,
+    "fmkorea": get_fmkorea,
     "ruliweb": get_ruliweb,
     "theqoo": get_theqoo,
     "dcinside": get_dcinside,

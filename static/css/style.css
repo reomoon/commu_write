@@ -269,7 +269,7 @@ body {
 /* 랭크 번호 */
 .post-rank {
   min-width: 18px;
-  font-size: 0.78rem;
+  font-size: 15px;
   font-weight: 800;
   text-align: center;
   color: var(--text-muted);

@@ -3,10 +3,12 @@
 const PAGE_SIZE = 20;
 
 // ===== 상태 관리 =====
+const CLIENT_CACHE_TTL = 10 * 60 * 1000; // 10분 (ms)
+
 const state = {
-  community: { source: 'bobaedream', cache: {}, shown: {} },
-  news:      { source: 'ent',        cache: {}, shown: {} },
-  hotdeal:   { source: 'ppomppu',    cache: {}, shown: {} },
+  community: { source: 'bobaedream', cache: {}, cacheTs: {}, shown: {} },
+  news:      { source: 'ent',        cache: {}, cacheTs: {}, shown: {} },
+  hotdeal:   { source: 'ppomppu',    cache: {}, cacheTs: {}, shown: {} },
   section:   'news',
 };
 
@@ -130,18 +132,23 @@ const ENDPOINTS = {
   hotdeal:   s => `/api/hotdeal/${s}`,
 };
 
-async function fetchAndRender(type, source) {
+function isCacheStale(type, source) {
+  const ts = state[type].cacheTs[source];
+  return !ts || (Date.now() - ts) > CLIENT_CACHE_TTL;
+}
+
+async function fetchAndRender(type, source, silent = false) {
   const st = state[type];
   const container = containers[type];
 
-  if (st.cache[source]) {
+  if (st.cache[source] && !isCacheStale(type, source)) {
     st.shown[source] = PAGE_SIZE;
     renderList(container, st.cache[source]);
     setUpdateTime();
     return;
   }
 
-  showSkeleton(container);
+  if (!silent) showSkeleton(container);
 
   try {
     const res = await fetch(ENDPOINTS[type](source));
@@ -149,11 +156,14 @@ async function fetchAndRender(type, source) {
     const data = await res.json();
     const items = data.items || [];
     st.cache[source] = items;
+    st.cacheTs[source] = Date.now();
     st.shown[source] = PAGE_SIZE;
     renderList(container, items);
     setUpdateTime();
   } catch (e) {
-    container.innerHTML = `<p class="error-msg">오류가 발생했습니다.<br><small>${e.message}</small></p>`;
+    if (!silent) {
+      container.innerHTML = `<p class="error-msg">오류가 발생했습니다.<br><small>${e.message}</small></p>`;
+    }
   }
 }
 
@@ -296,6 +306,22 @@ function initSheetDrag(list) {
   list.addEventListener('pointerup', endDrag);
   list.addEventListener('pointercancel', endDrag);
 }
+
+// ===== 자동 갱신: 10분마다 현재 탭 새로고침 =====
+setInterval(() => {
+  const type = state.section;
+  fetchAndRender(type, state[type].source, true);
+}, CLIENT_CACHE_TTL);
+
+// ===== 탭 복귀 시 만료된 데이터 자동 갱신 =====
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const type = state.section;
+  const source = state[type].source;
+  if (isCacheStale(type, source)) {
+    fetchAndRender(type, source, true);
+  }
+});
 
 // ===== 초기 로드 =====
 fetchAndRender('news', state.news.source);
