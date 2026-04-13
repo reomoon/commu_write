@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup, Tag
-from datetime import date
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 
 PC_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -30,7 +32,7 @@ def fetch(url, headers=None, timeout=10):
 
 def get_nate_ent():
     """네이트 연예 뉴스 일간 랭킹"""
-    today = date.today().strftime("%Y%m%d")
+    today = datetime.now(KST).strftime("%Y%m%d")
     soup = fetch(f"https://news.nate.com/rank/interest?sc=ent&p=day&date={today}")
     if not soup:
         return []
@@ -69,36 +71,69 @@ def get_nate_ent():
     return items[:50]
 
 
+def _parse_minutes_ago(time_text: str) -> int | None:
+    """상대 시간 텍스트를 분 단위로 변환. 오늘 기사가 아니면 None 반환."""
+    t = time_text.strip()
+    if "분전" in t or "분 전" in t:
+        try:
+            return int("".join(filter(str.isdigit, t)))
+        except ValueError:
+            return 0
+    if "시간전" in t or "시간 전" in t:
+        try:
+            return int("".join(filter(str.isdigit, t))) * 60
+        except ValueError:
+            return 60
+    # "04.13." 형식 → 오늘 날짜면 포함
+    today_prefix = datetime.now(KST).strftime("%-m.%-d.")
+    if t.startswith(today_prefix) or t == datetime.now(KST).strftime("%m.%d."):
+        return 24 * 60
+    # "방금", "금방" 등
+    if t in ("방금", "금방"):
+        return 0
+    # 그 외(어제, N일 전, 날짜 등)는 제외
+    return None
+
+
 def get_naver_section(section_url):
-    """네이버 뉴스 섹션"""
+    """네이버 뉴스 섹션 - 오늘 기사만, 최신순 정렬"""
     soup = fetch(section_url)
     if not soup:
         return []
 
-    items = []
+    candidates = []
     seen = set()
-    rank = 1
 
-    for a in soup.find_all("a", href=True):
-        href = a.get("href", "")
-        if "naver.com" not in href or "article" not in href:
+    for item in soup.select(".sa_item._LAZY_LOADING_WRAP"):
+        title_el = item.select_one(".sa_text_strong")
+        date_el = item.select_one(".sa_text_datetime")
+        a = item.select_one("a[href*='article']")
+
+        if not title_el or not a:
             continue
 
-        title_el = a.select_one(".sa_text_strong, .cluster_text_headline, .tit")
-        if not title_el:
-            continue
         title = title_el.get_text(strip=True)
+        href = a.get("href", "")
 
         if not title or len(title) < 6 or title in seen:
             continue
 
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
-            break
+        minutes_ago = None
+        if date_el:
+            minutes_ago = _parse_minutes_ago(date_el.get_text(strip=True))
+            if minutes_ago is None:
+                continue  # 오늘 기사 아님
 
-    return items[:50]
+        seen.add(title)
+        candidates.append({"title": title, "url": href, "_min": minutes_ago or 0})
+
+    # 최신순 정렬 (minutes_ago 오름차순)
+    candidates.sort(key=lambda x: x["_min"])
+
+    return [
+        {"rank": i + 1, "title": c["title"], "url": c["url"]}
+        for i, c in enumerate(candidates[:50])
+    ]
 
 
 def get_ruliweb_game():

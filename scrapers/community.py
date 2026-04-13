@@ -82,39 +82,60 @@ def _is_politics(title: str) -> bool:
 
 
 def get_inven():
-    """인벤 오픈이슈 오늘의 화제 top10"""
+    """인벤 오픈이슈 오늘의화제 + 게시판 목록 (최대 50개)"""
     soup = fetch("https://m.inven.co.kr/board/webzine/2097/")
     if not soup:
         return []
 
-    issue = soup.find(id="open-issue-topic")
-    if not issue:
-        return []
-
-    # 오늘의화제 (data-tab="0")
-    content = issue.select_one('div.content[data-tab="0"]')
-    if not content:
-        content = issue
-
     items = []
-    for li in content.select("li"):
-        a = li.find("a", href=True)
-        if not a:
-            continue
-        num_el = li.select_one(".num")
-        cate_el = li.select_one(".cate")
-        txt_el = li.select_one(".txt")
+    seen_urls = set()
 
-        rank = int(num_el.get_text(strip=True)) if num_el else len(items) + 1
-        cate = cate_el.get_text(strip=True) if cate_el else ""
-        title = txt_el.get_text(strip=True) if txt_el else a.get_text(strip=True)
+    # 1) 오늘의화제 top10 (랭킹 있음)
+    issue = soup.find(id="open-issue-topic")
+    if issue:
+        content = issue.select_one('div.content[data-tab="0"]') or issue
+        for li in content.select("li"):
+            a = li.find("a", href=True)
+            if not a:
+                continue
+            num_el = li.select_one(".num")
+            cate_el = li.select_one(".cate")
+            txt_el = li.select_one(".txt")
+            rank = int(num_el.get_text(strip=True)) if num_el else len(items) + 1
+            cate = cate_el.get_text(strip=True) if cate_el else ""
+            title = txt_el.get_text(strip=True) if txt_el else a.get_text(strip=True)
+            href = a.get("href", "")
+            if href and not href.startswith("http"):
+                href = "https://m.inven.co.kr" + href
+            if href not in seen_urls:
+                seen_urls.add(href)
+                items.append({"rank": rank, "title": title, "category": cate, "url": href})
+
+    # 2) 게시판 목록에서 추가 (contentLink 구조)
+    for a in soup.select("a.contentLink[href]"):
         href = a.get("href", "")
-        if href and not href.startswith("http"):
+        if not href.startswith("http"):
             href = "https://m.inven.co.kr" + href
+        if href in seen_urls:
+            continue
+        subject_el = a.select_one("span.subject")
+        cate_el = a.select_one("span.in-cate")
+        if not subject_el:
+            continue
+        title = subject_el.get_text(strip=True)
+        cate = cate_el.get_text(strip=True) if cate_el else ""
+        if not title or len(title) < 3:
+            continue
+        seen_urls.add(href)
+        items.append({"rank": len(items) + 1, "title": title, "category": cate, "url": href})
+        if len(items) >= 50:
+            break
 
-        items.append({"rank": rank, "title": title, "category": cate, "url": href})
+    # rank 재정렬
+    for i, item in enumerate(items):
+        item["rank"] = i + 1
 
-    return items[:10]
+    return items[:50]
 
 
 def get_bobaedream():
