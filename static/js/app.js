@@ -42,6 +42,16 @@ Object.entries(sentinels).forEach(([type, el]) => {
   observer.observe(el);
 });
 
+// ===== 탭 상태 저장 (새로고침 시 복원용) =====
+function saveTabState() {
+  sessionStorage.setItem('tabState', JSON.stringify({
+    section: state.section,
+    community: state.community.source,
+    news: state.news.source,
+    hotdeal: state.hotdeal.source,
+  }));
+}
+
 // ===== 메인 탭 이벤트 =====
 document.querySelectorAll('.main-tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -50,6 +60,7 @@ document.querySelectorAll('.main-tab').forEach(btn => {
     state.section = btn.dataset.section;
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     $(`${state.section}-section`).classList.add('active');
+    saveTabState();
     loadCurrent();
   });
 });
@@ -62,32 +73,35 @@ document.querySelectorAll('.main-tab').forEach(btn => {
       document.querySelectorAll(`#${type}-section .sub-tab`).forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state[type].source = btn.dataset.source;
+      saveTabState();
       fetchAndRender(type, btn.dataset.source);
     });
   });
 });
 
-// ===== 로고 클릭 → 홈 (뉴스/연예 탭으로 복귀) =====
+// ===== 로고 클릭 → 홈 (모든 탭 디폴트 초기화) =====
 document.querySelector('.logo').addEventListener('click', () => {
+  // 모든 섹션의 서브탭을 첫 번째로 초기화
+  ['news', 'community', 'hotdeal'].forEach(type => {
+    const subTabs = document.querySelectorAll(`#${type}-section .sub-tab`);
+    subTabs.forEach(b => b.classList.remove('active'));
+    const first = subTabs[0];
+    if (first) {
+      first.classList.add('active');
+      state[type].source = first.dataset.source;
+    }
+  });
+
   // 뉴스 메인탭으로
   document.querySelectorAll('.main-tab').forEach(b => b.classList.remove('active'));
-  const newsTab = document.querySelector('.main-tab[data-section="news"]');
-  newsTab.classList.add('active');
+  document.querySelector('.main-tab[data-section="news"]').classList.add('active');
   state.section = 'news';
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   $('news-section').classList.add('active');
 
-  // 뉴스 첫 번째 서브탭으로
-  const newsSubTabs = document.querySelectorAll('#news-section .sub-tab');
-  newsSubTabs.forEach(b => b.classList.remove('active'));
-  const firstSubTab = newsSubTabs[0];
-  if (firstSubTab) {
-    firstSubTab.classList.add('active');
-    state.news.source = firstSubTab.dataset.source;
-  }
-
   // 맨 위로 스크롤
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  saveTabState();
   fetchAndRender('news', state.news.source);
 });
 
@@ -513,5 +527,41 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ===== 초기 로드 =====
-fetchAndRender('news', state.news.source);
+// ===== 초기 로드 (새로고침 시 탭 상태 복원) =====
+(function initTabState() {
+  const saved = sessionStorage.getItem('tabState');
+  if (!saved) {
+    fetchAndRender('news', state.news.source);
+    return;
+  }
+  try {
+    const ts = JSON.parse(saved);
+    const section = ts.section || 'news';
+
+    // 각 섹션의 source 복원
+    ['news', 'community', 'hotdeal'].forEach(type => {
+      if (ts[type]) state[type].source = ts[type];
+    });
+    state.section = section;
+
+    // 메인 탭 DOM 동기화
+    document.querySelectorAll('.main-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.section === section);
+    });
+    document.querySelectorAll('.section').forEach(s => {
+      s.classList.toggle('active', s.id === `${section}-section`);
+    });
+
+    // 서브 탭 DOM 동기화
+    ['news', 'community', 'hotdeal'].forEach(type => {
+      const source = state[type].source;
+      document.querySelectorAll(`#${type}-section .sub-tab`).forEach(b => {
+        b.classList.toggle('active', b.dataset.source === source);
+      });
+    });
+
+    fetchAndRender(section, state[section].source);
+  } catch {
+    fetchAndRender('news', state.news.source);
+  }
+})();

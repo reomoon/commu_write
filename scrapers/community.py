@@ -81,375 +81,423 @@ def _is_politics(title: str) -> bool:
     return any(kw in title for kw in _POLITICS_KEYWORDS)
 
 
-def get_inven():
-    """인벤 오픈이슈 오늘의화제 + 게시판 목록 (최대 50개)"""
-    soup = fetch("https://m.inven.co.kr/board/webzine/2097/")
-    if not soup:
-        return []
+TARGET = 30  # 모든 커뮤니티 스크래퍼 목표 수량
 
+
+def get_inven():
+    """인벤 오픈이슈 오늘의화제 + 게시판 목록"""
     items = []
     seen_urls = set()
 
-    # 1) 오늘의화제 top10 (랭킹 있음)
-    issue = soup.find(id="open-issue-topic")
-    if issue:
-        content = issue.select_one('div.content[data-tab="0"]') or issue
-        for li in content.select("li"):
-            a = li.find("a", href=True)
-            if not a:
-                continue
-            num_el = li.select_one(".num")
-            cate_el = li.select_one(".cate")
-            txt_el = li.select_one(".txt")
-            rank = int(num_el.get_text(strip=True)) if num_el else len(items) + 1
-            cate = cate_el.get_text(strip=True) if cate_el else ""
-            title = txt_el.get_text(strip=True) if txt_el else a.get_text(strip=True)
-            href = a.get("href", "")
-            if href and not href.startswith("http"):
-                href = "https://m.inven.co.kr" + href
-            if href not in seen_urls:
-                seen_urls.add(href)
-                items.append({"rank": rank, "title": title, "category": cate, "url": href})
-
-    # 2) 게시판 목록에서 추가 (contentLink 구조)
-    for a in soup.select("a.contentLink[href]"):
-        href = a.get("href", "")
-        if not href.startswith("http"):
-            href = "https://m.inven.co.kr" + href
-        if href in seen_urls:
-            continue
-        subject_el = a.select_one("span.subject")
-        cate_el = a.select_one("span.in-cate")
-        if not subject_el:
-            continue
-        title = subject_el.get_text(strip=True)
-        cate = cate_el.get_text(strip=True) if cate_el else ""
-        if not title or len(title) < 3:
-            continue
-        seen_urls.add(href)
-        items.append({"rank": len(items) + 1, "title": title, "category": cate, "url": href})
-        if len(items) >= 50:
+    for page in range(1, 4):
+        url = f"https://m.inven.co.kr/board/webzine/2097/?iskin=&gid=0&sk=&sv=&category=0&p={page}"
+        soup = fetch(url)
+        if not soup:
             break
 
-    # rank 재정렬
+        page_found = 0
+
+        # 1) 오늘의화제 top10 (1페이지에만 존재)
+        if page == 1:
+            issue = soup.find(id="open-issue-topic")
+            if issue:
+                content = issue.select_one('div.content[data-tab="0"]') or issue
+                for li in content.select("li"):
+                    a = li.find("a", href=True)
+                    if not a:
+                        continue
+                    num_el = li.select_one(".num")
+                    cate_el = li.select_one(".cate")
+                    txt_el = li.select_one(".txt")
+                    rank = int(num_el.get_text(strip=True)) if num_el else len(items) + 1
+                    cate = cate_el.get_text(strip=True) if cate_el else ""
+                    title = txt_el.get_text(strip=True) if txt_el else a.get_text(strip=True)
+                    href = a.get("href", "")
+                    if href and not href.startswith("http"):
+                        href = "https://m.inven.co.kr" + href
+                    if href not in seen_urls:
+                        seen_urls.add(href)
+                        items.append({"rank": rank, "title": title, "category": cate, "url": href})
+                        page_found += 1
+
+        # 2) 게시판 목록 (contentLink 구조)
+        for a in soup.select("a.contentLink[href]"):
+            href = a.get("href", "")
+            if not href.startswith("http"):
+                href = "https://m.inven.co.kr" + href
+            if href in seen_urls:
+                continue
+            subject_el = a.select_one("span.subject")
+            cate_el = a.select_one("span.in-cate")
+            if not subject_el:
+                continue
+            title = subject_el.get_text(strip=True)
+            cate = cate_el.get_text(strip=True) if cate_el else ""
+            if not title or len(title) < 3:
+                continue
+            seen_urls.add(href)
+            items.append({"rank": len(items) + 1, "title": title, "category": cate, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
     for i, item in enumerate(items):
         item["rank"] = i + 1
 
-    return items[:50]
+    return items[:TARGET]
 
 
 def get_bobaedream():
     """보배드림 베스트글 (정치 글 제외)"""
-    soup = fetch("https://m.bobaedream.co.kr/board/new_writing/best")
-    if not soup:
-        return []
-
     items = []
     seen = set()
-    rank = 1
 
-    # bbs_view 링크가 있는 a 태그 기준
-    for a in soup.find_all("a", href=True):
-        href = a.get("href", "")
-        if "/bbs_view/" not in href:
-            continue
-
-        # 제목: .cont 스팬
-        txt_el = a.select_one(".txt .cont")
-        if not txt_el:
-            txt_el = a.select_one(".cont")
-        if not txt_el:
-            continue
-        title = txt_el.get_text(strip=True)
-
-        if not title or title in seen:
-            continue
-
-        # 정치X 필터
-        if _is_politics(title):
-            continue
-
-        if not href.startswith("http"):
-            href = "https://m.bobaedream.co.kr" + href
-
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://m.bobaedream.co.kr/board/new_writing/best?page={page}"
+        soup = fetch(url)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if "/bbs_view/" not in href:
+                continue
+            txt_el = a.select_one(".txt .cont") or a.select_one(".cont")
+            if not txt_el:
+                continue
+            title = txt_el.get_text(strip=True)
+            if not title or title in seen:
+                continue
+            if _is_politics(title):
+                continue
+            if not href.startswith("http"):
+                href = "https://m.bobaedream.co.kr" + href
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 def get_todayhumor():
     """오늘의유머 베스트오브베스트"""
-    soup = fetch("https://www.todayhumor.co.kr/board/list.php?table=bestofbest")
-    if not soup:
-        return []
-
     items = []
     seen = set()
-    rank = 1
 
-    for a in soup.find_all("a", href=re.compile(r'view\.php\?table=bestofbest&no=\d+')):
-        href = a.get("href", "")
-        title = a.get_text(strip=True)
-        title = re.sub(r'\[\d+\]\s*$', '', title).strip()
-        title = re.sub(r'\s+', ' ', title)
-
-        # 숫자만인 링크(게시글 번호 링크) 제외
-        if not title or title.isdigit() or len(title) < 3 or title in seen:
-            continue
-
-        no_match = re.search(r'no=(\d+)', href)
-        if not no_match:
-            continue
-        href = f"https://www.todayhumor.co.kr/board/view.php?table=bestofbest&no={no_match.group(1)}"
-
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://www.todayhumor.co.kr/board/list.php?table=bestofbest&page={page}"
+        soup = fetch(url)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for a in soup.find_all("a", href=re.compile(r'view\.php\?table=bestofbest&no=\d+')):
+            href = a.get("href", "")
+            title = a.get_text(strip=True)
+            title = re.sub(r'\[\d+\]\s*$', '', title).strip()
+            title = re.sub(r'\s+', ' ', title)
+            if not title or title.isdigit() or len(title) < 3 or title in seen:
+                continue
+            no_match = re.search(r'no=(\d+)', href)
+            if not no_match:
+                continue
+            href = f"https://www.todayhumor.co.kr/board/view.php?table=bestofbest&no={no_match.group(1)}"
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 def get_dogdrip():
     """개드립 인기글 (Cloudflare 우회)"""
-    soup = fetch_cf("https://www.dogdrip.net/dogdrip")
-    if not soup:
-        return []
-
     items = []
     seen = set()
-    rank = 1
 
-    for a in soup.find_all("a", href=True):
-        href = a.get("href", "")
-        # /dogdrip/숫자 형태의 게시글 링크
-        if not re.match(r'^/dogdrip/\d+', href):
-            continue
-
-        # 제목 전용 요소 우선, 없으면 a 텍스트
-        title_el = a.select_one(".title, .subject, strong")
-        title = title_el.get_text(strip=True) if title_el else a.get_text(strip=True)
-        title = strip_comment_count(title)
-
-        if not title or len(title) < 3 or title in seen:
-            continue
-
-        href = "https://www.dogdrip.net" + href.split("?")[0]
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://www.dogdrip.net/dogdrip?page={page}"
+        soup = fetch_cf(url)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if not re.match(r'^/dogdrip/\d+', href):
+                continue
+            title_el = a.select_one(".title, .subject, strong")
+            title = title_el.get_text(strip=True) if title_el else a.get_text(strip=True)
+            title = strip_comment_count(title)
+            if not title or len(title) < 3 or title in seen:
+                continue
+            href = "https://www.dogdrip.net" + href.split("?")[0]
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 def get_ruliweb():
     """루리웹 유머 베스트"""
-    soup = fetch("https://m.ruliweb.com/best/humor_only", headers=RULIWEB_HEADERS)
-    if not soup:
-        return []
-
     items = []
     seen = set()
-    rank = 1
 
-    for tr in soup.select("tr.table_body"):
-        a = tr.select_one("a.subject_link")
-        if not a:
-            continue
-        href = a.get("href", "")
-        # ruliweb.com/best/ 링크만
-        if "ruliweb.com/best/" not in href and not href.startswith("/best/"):
-            continue
-
-        # 댓글 수는 별도 span에 있음 - a 태그 직접 텍스트만
-        title = ""
-        for node in a.children:
-            if isinstance(node, Tag):
-                cls = node.get('class', [])
-                if 'num_reply' not in cls:
-                    title += node.get_text(strip=True)
-            else:
-                title += str(node).strip()
-        title = title.strip()
-        title = strip_comment_count(title)
-
-        if not title or len(title) < 3 or title in seen:
-            continue
-        if not href.startswith("http"):
-            href = "https://m.ruliweb.com" + href
-
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://m.ruliweb.com/best/humor_only?page={page}"
+        soup = fetch(url, headers=RULIWEB_HEADERS)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for tr in soup.select("tr.table_body"):
+            a = tr.select_one("a.subject_link")
+            if not a:
+                continue
+            href = a.get("href", "")
+            if "ruliweb.com/best/" not in href and not href.startswith("/best/"):
+                continue
+            title = ""
+            for node in a.children:
+                if isinstance(node, Tag):
+                    cls = node.get('class', [])
+                    if 'num_reply' not in cls:
+                        title += node.get_text(strip=True)
+                else:
+                    title += str(node).strip()
+            title = title.strip()
+            title = strip_comment_count(title)
+            if not title or len(title) < 3 or title in seen:
+                continue
+            if not href.startswith("http"):
+                href = "https://m.ruliweb.com" + href
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 def get_dcinside():
     """디시인사이드 베스트 게시물"""
-    soup = fetch("https://m.dcinside.com/board/dcbest", headers=PC_HEADERS)
-    if not soup:
-        return []
-
-    NOTICE_NOS = {"30638"}  # 실시간베스트 갤러리 이용 안내 공지
+    NOTICE_NOS = {"30638"}
 
     items = []
     seen = set()
-    rank = 1
 
-    for tr in soup.select("tr"):
-        ub = tr.select_one(".ub-word")
-        if not ub:
-            continue
-
-        title = ub.get_text(strip=True)
-        # 댓글 수 [N] 또는 [N/N] 제거
-        title = re.sub(r'\[\d+(?:/\d+)?\]\s*$', '', title).strip()
-
-        if not title or len(title) < 3 or title in seen:
-            continue
-
-        # /board/view/ 링크만
-        a = tr.find("a", href=re.compile(r'/board/view/'))
-        if not a:
-            continue
-        href = a.get("href", "")
-
-        # id와 no만 추출해서 PC URL로 재구성 (_dcbest 등 불필요한 파라미터 제거)
-        id_match = re.search(r'[?&]id=([^&]+)', href)
-        no_match = re.search(r'[?&]no=(\d+)', href)
-        if not id_match or not no_match:
-            continue
-
-        gall_id = id_match.group(1)
-        gall_no = no_match.group(1)
-
-        if gall_no in NOTICE_NOS:
-            continue
-
-        href = f"https://gall.dcinside.com/board/view/?id={gall_id}&no={gall_no}"
-
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://m.dcinside.com/board/dcbest?page={page}"
+        soup = fetch(url, headers=PC_HEADERS)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for tr in soup.select("tr"):
+            ub = tr.select_one(".ub-word")
+            if not ub:
+                continue
+            title = ub.get_text(strip=True)
+            title = re.sub(r'\[\d+(?:/\d+)?\]\s*$', '', title).strip()
+            if not title or len(title) < 3 or title in seen:
+                continue
+            a = tr.find("a", href=re.compile(r'/board/view/'))
+            if not a:
+                continue
+            href = a.get("href", "")
+            id_match = re.search(r'[?&]id=([^&]+)', href)
+            no_match = re.search(r'[?&]no=(\d+)', href)
+            if not id_match or not no_match:
+                continue
+            gall_id = id_match.group(1)
+            gall_no = no_match.group(1)
+            if gall_no in NOTICE_NOS:
+                continue
+            href = f"https://gall.dcinside.com/board/view/?id={gall_id}&no={gall_no}"
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 def get_theqoo():
     """더쿠 HOT 게시글"""
-    soup = fetch("https://theqoo.net/hot?filter_mode=normal", headers=PC_HEADERS)
-    if not soup:
-        return []
-
     NOTICE_IDS = {"3516074637", "3176100535", "2984500576", "1383792790"}
 
     items = []
     seen = set()
-    rank = 1
 
-    # td.title 안의 a 태그만 — 댓글 수 앵커(#) 제외
-    for a in soup.select("td.title a[href]"):
-        href = a.get("href", "")
-        # 댓글 앵커 링크 및 이벤트/카테고리 제외
-        if "#" in href or not re.match(r'^/hot/\d+', href):
-            continue
-        # 공지 ID 제외
-        post_id = re.search(r'/hot/(\d+)', href)
-        if post_id and post_id.group(1) in NOTICE_IDS:
-            continue
-
-        title = a.get_text(strip=True)
-        # 숫자만인 텍스트(조회수 등) 제외
-        if not title or len(title) < 3 or title.isdigit() or title in seen:
-            continue
-
-        href = "https://theqoo.net" + href.split("?")[0]
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://theqoo.net/hot?filter_mode=normal&page={page}"
+        soup = fetch(url, headers=PC_HEADERS)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for a in soup.select("td.title a[href]"):
+            href = a.get("href", "")
+            if "#" in href or not re.match(r'^/hot/\d+', href):
+                continue
+            post_id = re.search(r'/hot/(\d+)', href)
+            if post_id and post_id.group(1) in NOTICE_IDS:
+                continue
+            title = a.get_text(strip=True)
+            if not title or len(title) < 3 or title.isdigit() or title in seen:
+                continue
+            href = "https://theqoo.net" + href.split("?")[0]
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 def get_ppomppu_hot():
-    """뽐뿌 커뮤니티 핫게시물 (hot.php)"""
+    """뽐뿌 커뮤니티 핫게시물 (hot.php + 자유게시판 보충)"""
     PPOMPPU_HEADERS = {**PC_HEADERS, "Referer": "https://www.ppomppu.co.kr/hot.php/"}
 
     # 광고성 게시판 ID 제외
     AD_BOARDS = {"pmarket", "pmarket2", "pmarket3", "pmarket7", "pmarket8",
                  "card_market", "experience", "event2", "coupon", "wcoupon", "guin"}
 
-    soup = fetch("https://ppomppu.co.kr/hot.php", headers=PPOMPPU_HEADERS)
-    if not soup:
-        return []
-
     items = []
     seen = set()
-    for a in soup.find_all("a", href=re.compile(r'/zboard/view\.php\?id=\w+&no=\d+')):
-        href = a.get("href", "")
-        board_match = re.search(r'[?&]id=(\w+)', href)
-        if board_match and board_match.group(1) in AD_BOARDS:
-            continue
-        title = "".join(
-            node for node in a.strings
-            if node.strip() and node.strip().lower() not in ("hot", "pop", "new")
-        ).strip()
-        title = re.sub(r'^\s*\[?(hot|pop|new|ad)\]?\s*', '', title, flags=re.IGNORECASE).strip()
-        title = re.sub(r'\s*\d+$', '', title).strip()
-        if not title or len(title) < 3:
-            continue
-        if re.match(r'^AD\s', title, re.IGNORECASE):
-            continue
-        if not href.startswith("http"):
-            href = "https://ppomppu.co.kr" + href
-        if title not in seen:
-            seen.add(title)
-            items.append({"rank": len(items) + 1, "title": title, "url": href})
 
-    return items[:50]
+    def _parse_hot_links(soup):
+        found = 0
+        for a in soup.find_all("a", href=re.compile(r'/zboard/view\.php\?id=\w+&no=\d+')):
+            href = a.get("href", "")
+            board_match = re.search(r'[?&]id=(\w+)', href)
+            if board_match and board_match.group(1) in AD_BOARDS:
+                continue
+            title = "".join(
+                node for node in a.strings
+                if node.strip() and node.strip().lower() not in ("hot", "pop", "new")
+            ).strip()
+            title = re.sub(r'^\s*\[?(hot|pop|new|ad)\]?\s*', '', title, flags=re.IGNORECASE).strip()
+            title = re.sub(r'\s*\d+$', '', title).strip()
+            if not title or len(title) < 3:
+                continue
+            if re.match(r'^AD\s', title, re.IGNORECASE):
+                continue
+            if not href.startswith("http"):
+                href = "https://ppomppu.co.kr" + href
+            if title not in seen:
+                seen.add(title)
+                items.append({"rank": len(items) + 1, "title": title, "url": href})
+                found += 1
+        return found
+
+    # hot.php 페이지 수집 (page 파라미터 시도)
+    for page in range(1, 6):
+        url = "https://ppomppu.co.kr/hot.php" if page == 1 else f"https://ppomppu.co.kr/hot.php?page={page}"
+        soup = fetch(url, headers=PPOMPPU_HEADERS)
+        if not soup:
+            break
+        _parse_hot_links(soup)
+        if len(items) >= 30:
+            break
+
+    # 30개 미만이면 자유게시판에서 댓글 많은 글로 보충
+    if len(items) < 30:
+        FREE_HEADERS = {**PC_HEADERS, "Referer": "https://www.ppomppu.co.kr/"}
+        for page in range(1, 4):
+            url = f"https://ppomppu.co.kr/zboard/zboard.php?id=freeboard&page={page}"
+            soup = fetch(url, headers=FREE_HEADERS)
+            if not soup:
+                break
+            for tr in soup.select("tr.baseList"):
+                a = tr.find("a", href=re.compile(r'view\.php\?id=freeboard&no=\d+'))
+                if not a:
+                    continue
+                title = a.get_text(strip=True)
+                title = re.sub(r'\s*\[\d+\]\s*$', '', title).strip()  # 댓글수 제거
+                if not title or len(title) < 3:
+                    continue
+                # 댓글 수 확인 (10개 이상인 글만)
+                reply_el = tr.select_one("td.baseList-reply, span.list_reply, font.list_reply")
+                reply_count = 0
+                if reply_el:
+                    m = re.search(r'\d+', reply_el.get_text())
+                    if m:
+                        reply_count = int(m.group())
+                if reply_count < 10:
+                    continue
+                href = a.get("href", "")
+                if not href.startswith("http"):
+                    href = "https://ppomppu.co.kr/zboard/" + href
+                if title not in seen:
+                    seen.add(title)
+                    items.append({"rank": len(items) + 1, "title": title, "url": href})
+            if len(items) >= 30:
+                break
+
+    return items[:30]
 
 
 def get_mlbpark():
     """MLB파크 불펜 게시글"""
-    soup = fetch("https://mlbpark.donga.com/mp/b.php?b=bullpen", headers=PC_HEADERS)
-    if not soup:
-        return []
-
     items = []
     seen = set()
-    rank = 1
 
-    for a in soup.select("div.title a[href*='b=bullpen'][href*='id=']"):
-        href = a.get("href", "")
-        title = re.sub(r'\[\d+\]\s*$', '', a.get_text(strip=True)).strip()
-
-        if not title or len(title) < 3 or title in seen:
-            continue
-
-        if not href.startswith("http"):
-            href = "https://mlbpark.donga.com" + href
-
-        seen.add(title)
-        items.append({"rank": rank, "title": title, "url": href})
-        rank += 1
-        if rank > 50:
+    for page in range(1, 4):
+        url = f"https://mlbpark.donga.com/mp/b.php?b=bullpen&page={page}"
+        soup = fetch(url, headers=PC_HEADERS)
+        if not soup:
             break
 
-    return items[:50]
+        page_found = 0
+        for a in soup.select("div.title a[href*='b=bullpen'][href*='id=']"):
+            href = a.get("href", "")
+            title = re.sub(r'\[\d+\]\s*$', '', a.get_text(strip=True)).strip()
+            if not title or len(title) < 3 or title in seen:
+                continue
+            if not href.startswith("http"):
+                href = "https://mlbpark.donga.com" + href
+            seen.add(title)
+            items.append({"rank": len(items) + 1, "title": title, "url": href})
+            page_found += 1
+
+        if len(items) >= TARGET:
+            break
+        if page_found == 0:
+            break
+
+    return items[:TARGET]
 
 
 SCRAPERS = {

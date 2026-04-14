@@ -72,6 +72,6 @@ def api_hotdeal(source):
     data = get_cached(f"hotdeal_{source}", HOTDEAL_SCRAPERS[source])
     return cached_response({"source": source, "items": data})
 
-
+# 로컬 호스트 테스트 포트(ex. http://localhost:5000/)
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

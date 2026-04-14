@@ -31,7 +31,9 @@ def fetch(url, headers=None, timeout=10):
 
 
 def get_nate_ent():
-    """네이트 연예 뉴스 일간 랭킹"""
+    """네이트 연예 뉴스 일간 랭킹
+    참조: NEWS_SCRAPERS["ent"] → app.py /api/news/ent → index.html data-source="ent"
+    """
     today = datetime.now(KST).strftime("%Y%m%d")
     soup = fetch(f"https://news.nate.com/rank/interest?sc=ent&p=day&date={today}")
     if not soup:
@@ -96,7 +98,10 @@ def _parse_minutes_ago(time_text: str) -> int | None:
 
 
 def get_naver_section(section_url):
-    """네이버 뉴스 섹션 - 오늘 기사만, 최신순 정렬"""
+    """네이버 뉴스 섹션 - 오늘 기사만, 최신순 정렬
+    참조: get_naver_economy / get_naver_stocks / get_naver_realestate /
+          get_naver_society / get_naver_world / get_naver_it 에서 호출
+    """
     soup = fetch(section_url)
     if not soup:
         return []
@@ -137,7 +142,9 @@ def get_naver_section(section_url):
 
 
 def get_ruliweb_game():
-    """루리웹 게임 뉴스"""
+    """루리웹 게임 뉴스
+    참조: NEWS_SCRAPERS["game"] → app.py /api/news/game → index.html data-source="game"
+    """
     urls = [
         "https://m.ruliweb.com/news/523",
         "https://m.ruliweb.com/news/game",
@@ -182,25 +189,29 @@ def get_ruliweb_game():
 
     return items[:50]
 
-
+# 참조: NEWS_SCRAPERS["economy"] → app.py /api/news/economy → index.html data-source="economy"
 def get_naver_economy():
     return get_naver_section("https://news.naver.com/section/101")
 
+def get_naver_stocks():
+    return get_naver_section("https://news.naver.com/breakingnews/section/101/258")
+
+def get_naver_realestate():
+    return get_naver_section("https://news.naver.com/breakingnews/section/101/260")
 
 def get_naver_society():
     return get_naver_section("https://news.naver.com/section/102")
 
-
 def get_naver_world():
     return get_naver_section("https://news.naver.com/section/104")
-
 
 def get_naver_it():
     return get_naver_section("https://news.naver.com/breakingnews/section/105/230")
 
-
 def get_nate_sports():
-    """네이트 스포츠 뉴스 일간 랭킹"""
+    """네이트 스포츠 뉴스 일간 랭킹
+    참조: NEWS_SCRAPERS["sports"] → app.py /api/news/sports → index.html data-source="sports"
+    """
     today = datetime.now(KST).strftime("%Y%m%d")
     soup = fetch(f"https://news.nate.com/rank/interest?sc=spo&p=day&date={today}")
     if not soup:
@@ -240,7 +251,9 @@ def get_nate_sports():
 
 
 def _get_newstravel(sec_no):
-    """뉴스트래블 섹션 기사 목록"""
+    """뉴스트래블 섹션 기사 목록
+    참조: get_newstravel_domestic(sec_no=9) / get_newstravel_overseas(sec_no=2) 에서 호출
+    """
     soup = fetch(
         f"https://www.newstravel.co.kr/news/section_list_all.html?sec_no={sec_no}",
         headers={**PC_HEADERS, "Referer": "https://www.newstravel.co.kr/"},
@@ -273,17 +286,22 @@ def _get_newstravel(sec_no):
 
 
 def get_newstravel_domestic():
+    # 참조: NEWS_SCRAPERS["domestic"] → app.py /api/news/domestic → index.html data-source="domestic"
     return _get_newstravel(9)
 
 
 def get_newstravel_overseas():
+    # 참조: NEWS_SCRAPERS["overseas"] → app.py /api/news/overseas → index.html data-source="overseas"
     return _get_newstravel(2)
 
 
+# 참조: app.py api_news() → /api/news/<category>
 NEWS_SCRAPERS = {
     "ent": get_nate_ent,
     "society": get_naver_society,
     "economy": get_naver_economy,
+    "stocks": get_naver_stocks,
+    "realestate": get_naver_realestate,
     "world": get_naver_world,
     "it": get_naver_it,
     "sports": get_nate_sports,
