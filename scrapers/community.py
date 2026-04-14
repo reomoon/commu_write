@@ -81,7 +81,7 @@ def _is_politics(title: str) -> bool:
     return any(kw in title for kw in _POLITICS_KEYWORDS)
 
 
-TARGET = 30  # 모든 커뮤니티 스크래퍼 목표 수량
+TARGET = 50  # 모든 커뮤니티 스크래퍼 목표 수량
 
 
 def get_inven():
@@ -89,7 +89,7 @@ def get_inven():
     items = []
     seen_urls = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://m.inven.co.kr/board/webzine/2097/?iskin=&gid=0&sk=&sv=&category=0&p={page}"
         soup = fetch(url)
         if not soup:
@@ -155,7 +155,7 @@ def get_bobaedream():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://m.bobaedream.co.kr/board/new_writing/best?page={page}"
         soup = fetch(url)
         if not soup:
@@ -193,7 +193,7 @@ def get_todayhumor():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://www.todayhumor.co.kr/board/list.php?table=bestofbest&page={page}"
         soup = fetch(url)
         if not soup:
@@ -228,7 +228,7 @@ def get_dogdrip():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://www.dogdrip.net/dogdrip?page={page}"
         soup = fetch_cf(url)
         if not soup:
@@ -262,7 +262,7 @@ def get_ruliweb():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://m.ruliweb.com/best/humor_only?page={page}"
         soup = fetch(url, headers=RULIWEB_HEADERS)
         if not soup:
@@ -309,7 +309,7 @@ def get_dcinside():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://m.dcinside.com/board/dcbest?page={page}"
         soup = fetch(url, headers=PC_HEADERS)
         if not soup:
@@ -356,7 +356,7 @@ def get_theqoo():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://theqoo.net/hot?filter_mode=normal&page={page}"
         soup = fetch(url, headers=PC_HEADERS)
         if not soup:
@@ -423,19 +423,19 @@ def get_ppomppu_hot():
         return found
 
     # hot.php 페이지 수집 (page 파라미터 시도)
-    for page in range(1, 6):
+    for page in range(1, 8):
         url = "https://ppomppu.co.kr/hot.php" if page == 1 else f"https://ppomppu.co.kr/hot.php?page={page}"
         soup = fetch(url, headers=PPOMPPU_HEADERS)
         if not soup:
             break
         _parse_hot_links(soup)
-        if len(items) >= 30:
+        if len(items) >= TARGET:
             break
 
-    # 30개 미만이면 자유게시판에서 댓글 많은 글로 보충
-    if len(items) < 30:
+    # TARGET 미만이면 자유게시판에서 댓글 많은 글로 보충
+    if len(items) < TARGET:
         FREE_HEADERS = {**PC_HEADERS, "Referer": "https://www.ppomppu.co.kr/"}
-        for page in range(1, 4):
+        for page in range(1, 6):
             url = f"https://ppomppu.co.kr/zboard/zboard.php?id=freeboard&page={page}"
             soup = fetch(url, headers=FREE_HEADERS)
             if not soup:
@@ -463,10 +463,10 @@ def get_ppomppu_hot():
                 if title not in seen:
                     seen.add(title)
                     items.append({"rank": len(items) + 1, "title": title, "url": href})
-            if len(items) >= 30:
+            if len(items) >= TARGET:
                 break
 
-    return items[:30]
+    return items[:TARGET]
 
 
 def get_mlbpark():
@@ -474,7 +474,7 @@ def get_mlbpark():
     items = []
     seen = set()
 
-    for page in range(1, 4):
+    for page in range(1, 6):
         url = f"https://mlbpark.donga.com/mp/b.php?b=bullpen&page={page}"
         soup = fetch(url, headers=PC_HEADERS)
         if not soup:

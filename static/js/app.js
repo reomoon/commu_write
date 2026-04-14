@@ -60,6 +60,17 @@ document.querySelectorAll('.main-tab').forEach(btn => {
     state.section = btn.dataset.section;
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     $(`${state.section}-section`).classList.add('active');
+
+    // 해당 섹션 서브탭을 첫 번째로 리셋
+    const type = state.section;
+    const subTabs = document.querySelectorAll(`#${type}-section .sub-tab`);
+    subTabs.forEach(b => b.classList.remove('active'));
+    const first = subTabs[0];
+    if (first) {
+      first.classList.add('active');
+      state[type].source = first.dataset.source;
+    }
+
     saveTabState();
     loadCurrent();
   });
