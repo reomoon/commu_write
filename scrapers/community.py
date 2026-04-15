@@ -279,10 +279,11 @@ def get_ruliweb():
     items = []
     seen = set()
 
+    # Vercel 클라우드 IP 차단 우회: cloudscraper로 TLS 핑거프린팅 모방
     soups = fetch_pages([
         f"https://bbs.ruliweb.com/best/humor_only?page={page}"
         for page in range(1, 3)
-    ], headers=RULIWEB_HEADERS, timeout=12)
+    ], use_cf=True, timeout=15)
 
     for soup in soups:
         if not soup:
