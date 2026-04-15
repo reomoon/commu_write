@@ -13,9 +13,16 @@ try:
 except Exception:
     _scraper = None
 
-# 세션 + 자동 재시도 (서버 오류 시 2회)
+# 세션 + 자동 재시도 (HTTP 오류 + 연결/타임아웃 오류 포함)
 _session = requests.Session()
-_retry = Retry(total=2, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504])
+_retry = Retry(
+    total=3,
+    connect=2,
+    read=2,
+    backoff_factor=0.4,
+    status_forcelist=[500, 502, 503, 504],
+    allowed_methods=["GET"],
+)
 _adapter = HTTPAdapter(max_retries=_retry, pool_connections=10, pool_maxsize=20)
 _session.mount("http://", _adapter)
 _session.mount("https://", _adapter)
@@ -272,10 +279,11 @@ def get_ruliweb():
     items = []
     seen = set()
 
+    # 동시 2페이지로 제한 (3개 동시 요청 시 봇 차단 가능성)
     soups = fetch_pages([
         f"https://m.ruliweb.com/best/humor_only?page={page}"
-        for page in range(1, 4)
-    ], headers=RULIWEB_HEADERS)
+        for page in range(1, 3)
+    ], headers=RULIWEB_HEADERS, timeout=12)
 
     for soup in soups:
         if not soup:
