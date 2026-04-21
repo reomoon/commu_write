@@ -1,9 +1,13 @@
 import requests
 import re
+import random
+import threading
+import time
 from bs4 import BeautifulSoup, Tag
 from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urlparse
 
 try:
     import cloudscraper
@@ -19,13 +23,27 @@ _retry = Retry(
     total=3,
     connect=2,
     read=2,
-    backoff_factor=0.4,
-    status_forcelist=[500, 502, 503, 504],
+    backoff_factor=0.8,
+    status_forcelist=[403, 429, 500, 502, 503, 504],
     allowed_methods=["GET"],
+    respect_retry_after_header=True,
 )
 _adapter = HTTPAdapter(max_retries=_retry, pool_connections=10, pool_maxsize=20)
 _session.mount("http://", _adapter)
 _session.mount("https://", _adapter)
+
+_host_lock = threading.Lock()
+_host_last_request = {}
+_DEFAULT_HOST_DELAY = 0.8
+_HOST_DELAYS = {
+    "m.bobaedream.co.kr": 1.1,
+    "www.clien.net": 1.0,
+    "m.dcinside.com": 1.0,
+    "m.fmkorea.com": 1.1,
+    "m.inven.co.kr": 0.7,
+    "bbs.ruliweb.com": 0.9,
+    "theqoo.net": 1.1,
+}
 
 MOBILE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
@@ -55,9 +73,27 @@ DOGDRIP_HEADERS = {
 }
 
 
+def _pace_request(url):
+    host = urlparse(url).netloc
+    min_delay = _HOST_DELAYS.get(host, _DEFAULT_HOST_DELAY)
+    sleep_for = 0.0
+
+    with _host_lock:
+        now = time.monotonic()
+        last = _host_last_request.get(host, 0.0)
+        wait = min_delay - (now - last)
+        if wait > 0:
+            sleep_for = wait + random.uniform(0.05, 0.2)
+        _host_last_request[host] = now + sleep_for
+
+    if sleep_for > 0:
+        time.sleep(sleep_for)
+
+
 def fetch(url, headers=None, timeout=8):
     try:
         h = headers or MOBILE_HEADERS
+        _pace_request(url)
         r = _session.get(url, headers=h, timeout=timeout)
         r.raise_for_status()
         return BeautifulSoup(r.content, "lxml")
@@ -70,6 +106,7 @@ def fetch_cf(url, timeout=15):
     """Cloudflare 보호 사이트용 scraper"""
     try:
         if _scraper:
+            _pace_request(url)
             r = _scraper.get(url, timeout=timeout)
             r.raise_for_status()
             return BeautifulSoup(r.content, "lxml")
@@ -85,7 +122,8 @@ def fetch_pages(urls, headers=None, timeout=8, use_cf=False):
         if use_cf:
             return fetch_cf(url, timeout=timeout)
         return fetch(url, headers=headers, timeout=timeout)
-    with ThreadPoolExecutor(max_workers=min(len(urls), 5)) as executor:
+    max_workers = 2 if use_cf else 3
+    with ThreadPoolExecutor(max_workers=min(len(urls), max_workers)) as executor:
         return list(executor.map(_get, urls))
 
 
@@ -372,7 +410,7 @@ def get_theqoo():
     soups = fetch_pages([
         f"https://theqoo.net/hot?filter_mode=normal&page={page}"
         for page in range(1, 4)
-    ], headers=PC_HEADERS)
+    ], use_cf=True)
 
     for soup in soups:
         if not soup:
@@ -530,6 +568,58 @@ def get_instiz():
     return items
 
 
+def get_fmkorea():
+    """에펨코리아 포텐 터짐 화제순"""
+    items_by_id = {}
+    skip_titles = {
+        "공지", "알림", "로그인", "가입", "PC", "다크OFF",
+        "텍스트 형식", "이미지 형식", "최신", "화제", "정치",
+    }
+
+    soup = fetch("https://m.fmkorea.com/best2", headers=MOBILE_HEADERS, timeout=10)
+    if not soup:
+        return []
+
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "").strip()
+        if not href:
+            continue
+
+        href = href.replace("&amp;", "&")
+        doc_match = re.search(r'document_srl=(\d+)', href) or re.search(r'/best(?:2)?/(\d+)', href)
+        if not doc_match:
+            doc_match = re.search(r'(?:https?://m\.fmkorea\.com)?/?(\d+)(?:[/?#]|$)', href)
+        if not doc_match:
+            continue
+        doc_id = doc_match.group(1)
+
+        title_el = a.select_one(".title, .list_title, .hotdeal_var8, strong")
+        title = title_el.get_text(" ", strip=True) if title_el else a.get_text(" ", strip=True)
+        title = re.sub(r'^\s*#+\s*>?\s*', '', title)
+        title = strip_comment_count(re.sub(r'\s+', ' ', title)).strip(" -/")
+        if not title or len(title) < 3:
+            continue
+        if title in skip_titles:
+            continue
+        if title.endswith("형식") or title.endswith("OFF"):
+            continue
+
+        canonical_url = f"https://www.fmkorea.com/best/{doc_id}"
+        existing = items_by_id.get(doc_id)
+        if existing and len(existing["title"]) >= len(title):
+            continue
+
+        items_by_id[doc_id] = {"title": title, "url": canonical_url}
+
+        if len(items_by_id) >= TARGET:
+            break
+
+    items = []
+    for i, item in enumerate(items_by_id.values(), 1):
+        items.append({"rank": i, "title": item["title"], "url": item["url"]})
+    return items[:TARGET]
+
+
 def get_clien_park():
     """클리앙 모두의공원 인기글 (공감순)"""
     items = []
@@ -581,4 +671,5 @@ SCRAPERS = {
     "mlbpark": get_mlbpark,
     "clien": get_clien_park,
     "instiz": get_instiz,
+    "fmkorea": get_fmkorea,
 }

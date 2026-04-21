@@ -37,6 +37,10 @@ body {
   padding-bottom: 40px;
 }
 
+body.sheet-open {
+  overflow: hidden;
+}
+
 /* ===== Header ===== */
 .site-header {
   position: sticky;
@@ -541,6 +545,7 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  overscroll-behavior: contain;
 }
 
 .sheet-backdrop[hidden] {
@@ -558,6 +563,7 @@ body {
   transform: translateY(100%);
   transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  overscroll-behavior: contain;
 }
 
 .sheet-backdrop.open .sheet-panel {
@@ -602,13 +608,15 @@ body {
   overflow-y: auto;
   flex: 1;
   padding: 0 12px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sheet-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 13px 6px;
+  gap: 10px;
+  padding: 10px 6px;
   border-bottom: 1px solid var(--border-light);
   user-select: none;
   -webkit-user-select: none;
@@ -627,12 +635,27 @@ body {
 }
 
 .drag-handle {
+  width: 45px;
+  min-width: 45px;
+  min-height: 45px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: -4px 0;
+  border: none;
+  background: none;
+  border-radius: 10px;
   color: var(--text-muted);
   font-size: 1.1rem;
   flex-shrink: 0;
   line-height: 1;
   cursor: grab;
   touch-action: none;
+}
+
+.drag-handle:active {
+  background: #f1f4f8;
 }
 
 .sheet-item-label {

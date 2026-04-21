@@ -378,6 +378,12 @@ function applyTabOrder(section) {
 // ===== 바텀시트 =====
 const tabSheet = $('tabSheet');
 let _sheetSection = null;
+tabSheet.addEventListener('touchmove', e => {
+  if (!tabSheet.classList.contains('open')) return;
+  if (!e.target.closest('.sheet-list')) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 function openTabSheet(section) {
   _sheetSection = section;
@@ -389,17 +395,20 @@ function openTabSheet(section) {
     const li = document.createElement('li');
     li.className = 'sheet-item';
     li.dataset.source = btn.dataset.source;
-    li.innerHTML = `<span class="drag-handle" aria-hidden="true">⠿</span>
+    li.innerHTML = `<button type="button" class="drag-handle" aria-label="순서 변경">⠿</button>
       <span class="sheet-item-label">${btn.textContent.trim()}</span>`;
     list.appendChild(li);
   });
 
+  document.body.classList.add('sheet-open');
   tabSheet.hidden = false;
   requestAnimationFrame(() => tabSheet.classList.add('open'));
+  bindSheetOverscrollLock(list);
   initSheetDrag(list);
 }
 
 function closeTabSheet() {
+  document.body.classList.remove('sheet-open');
   tabSheet.classList.remove('open');
   tabSheet.addEventListener('transitionend', () => { tabSheet.hidden = true; }, { once: true });
 }
@@ -428,15 +437,42 @@ $('tabSheetDone').addEventListener('click', () => {
 });
 
 // ===== 드래그 정렬 (Pointer Events) =====
+function bindSheetOverscrollLock(list) {
+  if (list.dataset.overscrollLock === '1') return;
+  list.dataset.overscrollLock = '1';
+
+  let startY = 0;
+  list.addEventListener('touchstart', e => {
+    startY = e.touches[0]?.clientY ?? 0;
+  }, { passive: true });
+
+  list.addEventListener('touchmove', e => {
+    const currentY = e.touches[0]?.clientY ?? startY;
+    const deltaY = currentY - startY;
+    const atTop = list.scrollTop <= 0;
+    const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+
+    if ((atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
+
 function initSheetDrag(list) {
+  if (list.dataset.dragReady === '1') return;
+  list.dataset.dragReady = '1';
+
   let dragged = null;
+  let dragHandle = null;
 
   list.addEventListener('pointerdown', e => {
-    if (!e.target.closest('.drag-handle')) return;
-    const item = e.target.closest('.sheet-item');
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    const item = handle.closest('.sheet-item');
     if (!item) return;
+    dragHandle = handle;
     dragged = item;
-    item.setPointerCapture(e.pointerId);
+    dragHandle.setPointerCapture(e.pointerId);
     item.classList.add('dragging');
     e.preventDefault(); // 핸들 잡을 때만 스크롤 막기
   });
@@ -459,9 +495,11 @@ function initSheetDrag(list) {
     if (!dragged) return;
     dragged.classList.remove('dragging');
     dragged = null;
+    dragHandle = null;
   };
   list.addEventListener('pointerup', endDrag);
   list.addEventListener('pointercancel', endDrag);
+  list.addEventListener('lostpointercapture', endDrag, true);
 }
 
 // ===== 서브탭 스와이프 애니메이션 (iOS 스타일) =====
