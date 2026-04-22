@@ -29,7 +29,7 @@ def _fetch_soup(source, url):
     headers = (MOBILE_HEADERS if source in ("bobaedream", "inven") else PC_HEADERS).copy()
     headers["Referer"] = url
     try:
-        resp = requests.get(url, headers=headers, timeout=12, allow_redirects=True)
+        resp = requests.get(url, headers=headers, timeout=20, allow_redirects=True)
         resp.raise_for_status()
         return BeautifulSoup(resp.text, "lxml")
     except Exception as e:

@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from scrapers.community import SCRAPERS
@@ -42,7 +43,8 @@ def init_db():
                 images           TEXT    DEFAULT '[]',
                 collected_at     TEXT    NOT NULL,
                 batch_id         TEXT    NOT NULL,
-                status           TEXT    DEFAULT 'pending'
+                status           TEXT    DEFAULT 'pending',
+                UNIQUE(batch_id, source, rank)
             )
         """)
         conn.execute(
@@ -56,7 +58,7 @@ def _insert_post(source, rank, title, url, images, collected_at, batch_id):
     with DB_LOCK:
         conn = sqlite3.connect(DB_PATH)
         conn.execute(
-            "INSERT INTO collected_posts (source,rank,title,url,images,collected_at,batch_id) "
+            "INSERT OR IGNORE INTO collected_posts (source,rank,title,url,images,collected_at,batch_id) "
             "VALUES (?,?,?,?,?,?,?)",
             (source, rank, title, url, json.dumps(images, ensure_ascii=False),
              collected_at, batch_id),
@@ -165,45 +167,49 @@ def get_queued_posts():
 
 # ─── 수집 작업 ────────────────────────────────────────────────────────────────
 
-def collect_once():
-    """
-    6개 커뮤니티 상위 5개 글 수집 + 이미지 다운로드.
-    APScheduler 또는 수동 호출 가능.
-    """
-    now = datetime.now()
-    batch_id = now.strftime("%Y%m%d_%H%M")
-    date_str = now.strftime("%Y%m%d")
-    collected_at = now.isoformat(timespec="seconds")
+def _collect_source(source, batch_id, collected_at):
+    """소스 하나를 수집 (스레드에서 실행)."""
+    scraper = SCRAPERS.get(source)
+    if scraper is None:
+        print(f"[collector] 스크래퍼 없음: {source}")
+        return
+    try:
+        items = scraper()[:TOP_N]
+    except Exception as e:
+        print(f"[collector] {source} 목록 수집 실패: {e}")
+        return
 
-    print(f"[collector] batch {batch_id} 시작")
-
-    for source in TARGET_SOURCES:
-        scraper = SCRAPERS.get(source)
-        if scraper is None:
-            print(f"[collector] 스크래퍼 없음: {source}")
+    label = SOURCE_LABELS.get(source, source)
+    for item in items:
+        rank  = item.get("rank", 0)
+        title = item.get("title", "")
+        url   = item.get("url", "")
+        if not url:
             continue
         try:
-            items = scraper()[:TOP_N]
+            images = scrape_post_images(source, url)
         except Exception as e:
-            print(f"[collector] {source} 목록 수집 실패: {e}")
-            continue
+            print(f"[collector] {source} rank{rank} 이미지 실패: {e}")
+            images = []
+        _insert_post(source, rank, title, url, images, collected_at, batch_id)
+        print(f"[collector] {label} {rank}위 | 이미지 {len(images)}개 | {title[:30]}")
 
-        for item in items:
-            rank = item.get("rank", 0)
-            title = item.get("title", "")
-            url = item.get("url", "")
-            if not url:
-                continue
 
-            try:
-                images = scrape_post_images(source, url)
-            except Exception as e:
-                print(f"[collector] {source} rank{rank} 이미지 수집 실패: {e}")
-                images = []
+def collect_once():
+    """6개 커뮤니티를 병렬로 수집. APScheduler 또는 수동 호출."""
+    now = datetime.now()
+    batch_id     = now.strftime("%Y%m%d_%H%M")
+    collected_at = now.isoformat(timespec="seconds")
 
-            _insert_post(source, rank, title, url, images, collected_at, batch_id)
-            label = SOURCE_LABELS.get(source, source)
-            print(f"[collector] {label} {rank}위 저장 | 이미지 {len(images)}개 | {title[:40]}")
+    print(f"[collector] batch {batch_id} 시작 (병렬)")
+
+    with ThreadPoolExecutor(max_workers=len(TARGET_SOURCES)) as ex:
+        futures = {ex.submit(_collect_source, src, batch_id, collected_at): src
+                   for src in TARGET_SOURCES}
+        for f in as_completed(futures):
+            src = futures[f]
+            if f.exception():
+                print(f"[collector] {src} 오류: {f.exception()}")
 
     print(f"[collector] batch {batch_id} 완료")
 
