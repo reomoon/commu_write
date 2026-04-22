@@ -14,15 +14,16 @@ from scrapers.post_scraper import scrape_post_images
 DB_PATH = os.path.join(os.path.dirname(__file__), "blog_collected.db")
 DB_LOCK = threading.Lock()
 
-TARGET_SOURCES = ["bobaedream", "todayhumor", "ruliweb", "instiz", "inven"]
+TARGET_SOURCES = ["bobaedream", "todayhumor", "ruliweb", "instiz", "inven", "fmkorea"]
 TOP_N = 10
 
 SOURCE_LABELS = {
     "bobaedream": "보배드림",
     "todayhumor": "오늘의유머",
-    "ruliweb": "루리웹",
-    "instiz": "인스티즈",
-    "inven": "인벤",
+    "ruliweb":    "루리웹",
+    "instiz":     "인스티즈",
+    "inven":      "인벤",
+    "fmkorea":    "에펨코리아",
 }
 
 
@@ -195,7 +196,7 @@ def collect_once():
                 continue
 
             try:
-                images = scrape_post_images(source, url, rank, date_str)
+                images = scrape_post_images(source, url)
             except Exception as e:
                 print(f"[collector] {source} rank{rank} 이미지 수집 실패: {e}")
                 images = []
@@ -226,10 +227,10 @@ def start_scheduler():
     scheduler = BackgroundScheduler(timezone="Asia/Seoul")
     scheduler.add_job(
         collect_once,
-        CronTrigger(hour="0,6,12,18", minute=0, timezone="Asia/Seoul"),
+        CronTrigger(hour="7,13,17,20", minute=0, timezone="Asia/Seoul"),
         id="blog_collect",
         replace_existing=True,
     )
     scheduler.start()
-    print("[collector] 스케줄러 시작 (00:00 / 06:00 / 12:00 / 18:00 KST)")
+    print("[collector] 스케줄러 시작 (07:00 / 13:00 / 17:00 / 20:00 KST)")
     return scheduler

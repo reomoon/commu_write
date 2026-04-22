@@ -1,4 +1,5 @@
-from flask import Flask, jsonify, render_template, make_response, request, redirect, session, send_file
+from flask import Flask, jsonify, render_template, make_response, request, redirect, session, Response
+import urllib.request
 from scrapers.community import SCRAPERS
 from scrapers.news import NEWS_SCRAPERS
 from scrapers.hotdeal import HOTDEAL_SCRAPERS
@@ -7,8 +8,6 @@ import time
 import os
 import sqlite3
 import secrets
-import zipfile
-import io
 import json as _json
 
 app = Flask(__name__)
@@ -108,7 +107,7 @@ def cached_response(data):
     return resp
 
 
-@app.route("/")
+@app.route("/news")
 def index():
     return render_template("index.html")
 
@@ -188,7 +187,7 @@ def api_post_comment():
 
 # ===== 블로그 어드민 라우트 =====
 
-@app.route("/blog-admin")
+@app.route("/")
 def blog_admin():
     return render_template("blog_admin.html")
 
@@ -282,52 +281,37 @@ def api_blog_queue_done():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@app.route("/api/blog/images/<int:post_id>/zip")
-def api_blog_images_zip(post_id):
-    """선택한 게시글 이미지들을 ZIP으로 묶어서 다운로드."""
+PROXY_REFERERS = {
+    "ruliweb":    "https://bbs.ruliweb.com/",
+    "todayhumor": "https://www.todayhumor.co.kr/",
+    "bobaedream": "https://www.bobaedream.co.kr/",
+    "instiz":     "https://www.instiz.net/",
+    "inven":      "https://www.inven.co.kr/",
+    "fmkorea":    "https://www.fmkorea.com/",
+}
+
+@app.route("/api/imgproxy")
+def img_proxy():
+    """핫링크 차단 우회 — 서버에서 이미지 중계."""
+    url  = request.args.get("url", "").strip()
+    src  = request.args.get("src", "")
+    if not url or not url.startswith("http"):
+        return "", 400
+    referer = PROXY_REFERERS.get(src, url)
     try:
-        from blog_collector import get_batch_posts, get_batches
-        post = None
-        for batch in get_batches(100):
-            for p in get_batch_posts(batch["batch_id"]):
-                if p["id"] == post_id:
-                    post = p
-                    break
-            if post:
-                break
-
-        if not post:
-            return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
-
-        images = post.get("images", [])
-        static_root = os.path.join(os.path.dirname(__file__), "static")
-
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            count = 0
-            for img in images:
-                local = img.get("local")
-                if not local:
-                    continue
-                filepath = os.path.join(static_root, local.replace("/", os.sep))
-                if os.path.exists(filepath):
-                    zf.write(filepath, os.path.basename(filepath))
-                    count += 1
-
-        if count == 0:
-            return jsonify({"error": "저장된 이미지가 없습니다."}), 404
-
-        buf.seek(0)
-        safe_title = "".join(c for c in post["title"][:20] if c.isalnum() or c in " _-")
-        filename = f"{post['source']}_{post['rank']}위_{safe_title}.zip"
-        return send_file(
-            buf,
-            mimetype="application/zip",
-            as_attachment=True,
-            download_name=filename,
-        )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+            "Referer": referer,
+            "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            ct = resp.headers.get("Content-Type", "image/jpeg")
+            data = resp.read()
+        response = Response(data, content_type=ct)
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+    except Exception:
+        return "", 502
 
 
 # 로컬 호스트 테스트 포트(ex. http://localhost:5000/)

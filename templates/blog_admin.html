@@ -3,230 +3,221 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>블로그 발행 관리</title>
+<title>커뮤니티 수집기</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f4f5f7; color: #1a1a2e; min-height: 100vh; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f2f2f2; color: #1c1c1e; min-height: 100vh; }
 
+  /* ── 헤더 ── */
   .header {
     background: #0088e9; color: #fff;
     padding: 14px 20px;
     display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    box-shadow: 0 1px 6px rgba(0,0,0,.15);
   }
-  .header h1 { font-size: 1.1rem; font-weight: 700; }
-  .queue-badge {
-    background: #fff; color: #03c75a;
-    font-size: .8rem; font-weight: 700;
+  .header h1 { font-size: 1rem; font-weight: 600; letter-spacing: -.2px; }
+  .queue-pill {
+    background: rgba(255,255,255,.2); color: #fff;
+    font-size: .78rem; font-weight: 600;
     padding: 4px 12px; border-radius: 20px;
-    display: flex; align-items: center; gap: 6px;
   }
-  .queue-badge .count { font-size: 1rem; }
+  .queue-pill span { font-weight: 700; }
 
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border: none; border-radius: 6px;
-    font-size: .85rem; font-weight: 600; cursor: pointer;
-    transition: opacity .15s;
-  }
-  .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .btn:hover:not(:disabled) { opacity: .85; }
-  .btn-green  { background: #03c75a; color: #fff; }
-  .btn-navy   { background: #1f4e79; color: #fff; }
-  .btn-gray   { background: #6c757d; color: #fff; }
-  .btn-orange { background: #fd7e14; color: #fff; }
-  .btn-blue   { background: #0088e9; color: #fff; }
-  .btn-sm     { padding: 5px 10px; font-size: .78rem; }
-
+  /* ── 툴바 ── */
   .toolbar {
-    background: #fff; padding: 12px 20px;
-    display: flex; align-items: center; gap: 10px;
-    border-bottom: 1px solid #e0e0e0; flex-wrap: wrap;
+    background: #fff; padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #e5e5e5;
   }
-  .toolbar label { font-size: .85rem; font-weight: 600; color: #555; white-space: nowrap; }
   .toolbar select {
-    padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px;
-    font-size: .85rem; background: #fafafa; flex: 1; min-width: 0; max-width: 320px;
+    flex: 1; min-width: 0;
+    padding: 7px 10px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: .83rem; background: #fafafa; color: #1c1c1e;
+    appearance: none;
   }
-  .spacer { flex: 1; }
-  .sel-count { font-size: .83rem; color: #555; white-space: nowrap; }
+  .sel-count { font-size: .8rem; color: #888; white-space: nowrap; }
 
-  .content { padding: 14px; max-width: 900px; margin: 0 auto; }
+  /* ── 버튼 ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border: none; border-radius: 8px;
+    font-size: .82rem; font-weight: 600; cursor: pointer;
+    transition: opacity .15s; white-space: nowrap;
+  }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn:active:not(:disabled) { opacity: .75; }
+  .btn-primary { background: #0088e9; color: #fff; }
+  .btn-dark    { background: #1c1c1e; color: #fff; }
+  .btn-ghost   { background: #ebebeb; color: #444; }
+  .btn-sm      { padding: 5px 10px; font-size: .76rem; }
 
-  /* 대기열 패널 */
+  /* ── 본문 ── */
+  .content { padding: 12px; max-width: 860px; margin: 0 auto; }
+
+  /* ── 대기열 패널 ── */
   .queue-panel {
-    background: #fff3cd; border: 1px solid #ffc107;
-    border-radius: 10px; margin-bottom: 14px; overflow: hidden;
+    background: #fff; border: 1px solid #e5e5e5;
+    border-radius: 12px; margin-bottom: 10px; overflow: hidden;
   }
-  .queue-panel-header {
+  .queue-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px; background: #ffe69c; cursor: pointer;
+    padding: 10px 14px; cursor: pointer; user-select: none;
   }
-  .queue-panel-header h3 { font-size: .9rem; color: #856404; }
-  .queue-list { padding: 0; }
+  .queue-header h3 { font-size: .83rem; color: #555; font-weight: 600; }
+  .queue-body { border-top: 1px solid #f0f0f0; }
   .queue-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px; border-top: 1px solid #ffeeba;
-    font-size: .85rem;
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border-bottom: 1px solid #f5f5f5; font-size: .82rem;
   }
-  .queue-item .q-label { background: #856404; color: #fff; font-size: .7rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
-  .queue-item .q-title { flex: 1; color: #333; }
-  .queue-item .q-del { color: #dc3545; cursor: pointer; background: none; border: none; font-size: 1rem; padding: 0 4px; }
-  .queue-empty { padding: 14px 16px; font-size: .85rem; color: #999; text-align: center; }
+  .queue-item:last-child { border-bottom: none; }
+  .q-src { font-size: .7rem; font-weight: 700; color: #888; background: #f2f2f2; padding: 2px 6px; border-radius: 6px; flex-shrink: 0; }
+  .q-title { flex: 1; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-del { background: none; border: none; color: #bbb; cursor: pointer; font-size: .9rem; padding: 0 2px; flex-shrink: 0; }
+  .q-del:hover { color: #888; }
 
-  /* 수집 안내 바 */
+  /* ── 수집 바 ── */
   .collect-bar {
-    background: #e8f5e9; border: 1px solid #a5d6a7;
-    border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
   }
-  .collect-bar p { font-size: .82rem; color: #2e7d32; flex: 1; }
+  .collect-bar p { font-size: .79rem; color: #888; }
 
-  /* 커뮤니티 섹션 */
+  /* ── 커뮤니티 섹션 ── */
   .community-section {
-    background: #fff; border-radius: 10px; margin-bottom: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.07); overflow: hidden;
+    background: #fff; border-radius: 12px; margin-bottom: 10px;
+    border: 1px solid #e5e5e5; overflow: hidden;
   }
   .community-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; background: #f8f9fa; border-bottom: 1px solid #eee;
+    padding: 10px 14px; border-bottom: 1px solid #f0f0f0;
   }
-  .community-name { font-size: .9rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .badge { background: #03c75a; color: #fff; font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
-  .check-all-btn { font-size: .75rem; color: #03c75a; cursor: pointer; text-decoration: underline; background: none; border: none; }
+  .community-name { font-size: .85rem; font-weight: 700; color: #1c1c1e; display: flex; align-items: center; gap: 6px; }
+  .src-badge { font-size: .68rem; color: #999; background: #f2f2f2; padding: 2px 7px; border-radius: 6px; font-weight: 600; }
+  .check-all { font-size: .74rem; color: #aaa; cursor: pointer; background: none; border: none; text-decoration: underline; }
 
-  .post-list { padding: 4px 0; }
+  /* ── 포스트 카드 ── */
   .post-card {
     display: flex; align-items: flex-start; gap: 10px;
-    padding: 10px 14px; border-bottom: 1px solid #f0f0f0; transition: background .1s;
+    padding: 10px 14px; border-bottom: 1px solid #f5f5f5;
+    transition: background .1s;
   }
   .post-card:last-child { border-bottom: none; }
-  .post-card:hover { background: #f8fffe; }
-  .post-card.selected { background: #e8fdf0; }
+  .post-card.selected { background: #f7fbff; }
 
-  .post-checkbox { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; accent-color: #03c75a; flex-shrink: 0; }
-  .post-rank { font-size: .75rem; font-weight: 700; color: #aaa; width: 20px; text-align: center; flex-shrink: 0; margin-top: 2px; }
-  .post-rank.top3 { color: #03c75a; }
+  .post-checkbox { width: 17px; height: 17px; margin-top: 3px; cursor: pointer; accent-color: #0088e9; flex-shrink: 0; }
+  .post-rank { font-size: .72rem; font-weight: 700; color: #ccc; width: 18px; text-align: center; flex-shrink: 0; margin-top: 3px; }
+  .post-rank.top3 { color: #0088e9; }
+
   .post-body { flex: 1; min-width: 0; }
-  .post-title { font-size: .88rem; font-weight: 600; line-height: 1.4; margin-bottom: 6px; word-break: break-all; }
-  .post-title a { color: #1a1a2e; text-decoration: none; }
-  .post-title a:hover { color: #03c75a; text-decoration: underline; }
-  .post-images { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
-  .post-images img { width: 68px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid #eee; cursor: pointer; transition: transform .15s; }
-  .post-images img:hover { transform: scale(1.06); }
-  .no-image { font-size: .73rem; color: #bbb; margin-top: 4px; }
+  .post-title { font-size: .86rem; font-weight: 500; line-height: 1.45; margin-bottom: 5px; }
+  .post-title a { color: #1c1c1e; text-decoration: none; }
+  .post-title a:hover { color: #0088e9; }
 
-  .post-footer { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
-  .status-badge { font-size: .72rem; font-weight: 700; }
-  .status-badge.queued    { color: #fd7e14; }
-  .status-badge.published { color: #03c75a; }
-  .img-save-btn { font-size: .72rem; padding: 3px 8px; }
+  .post-thumbs { display: flex; gap: 4px; margin-bottom: 4px; }
+  .post-thumbs img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #ebebeb; cursor: pointer; }
+  .no-img { font-size: .72rem; color: #ccc; }
 
-  .empty { text-align: center; padding: 40px 16px; color: #aaa; font-size: .9rem; line-height: 1.8; }
-  .empty .icon { font-size: 2rem; margin-bottom: 8px; }
+  .post-meta { display: flex; align-items: center; gap: 6px; }
+  .status-dot { font-size: .72rem; color: #aaa; }
+  .status-dot.queued { color: #0088e9; }
+  .status-dot.published { color: #34c759; }
+  .img-btn { font-size: .72rem; padding: 3px 8px; border-radius: 6px; }
 
-  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+  /* ── 빈 상태 ── */
+  .empty { text-align: center; padding: 48px 16px; color: #bbb; font-size: .88rem; line-height: 2; }
+
+  /* ── 스피너 ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+  .spinner.dark { border-color: rgba(0,0,0,.12); border-top-color: #555; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* 라이트박스 */
-  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 999; align-items: center; justify-content: center; }
+  /* ── 라이트박스 ── */
+  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 999; align-items: center; justify-content: center; }
   .lightbox.open { display: flex; }
-  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
-  .lightbox-close { position: absolute; top: 16px; right: 20px; color: #fff; font-size: 2rem; cursor: pointer; background: none; border: none; line-height: 1; }
+  .lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 8px; }
+  .lb-close { position: absolute; top: 14px; right: 18px; color: rgba(255,255,255,.8); font-size: 1.8rem; cursor: pointer; background: none; border: none; line-height: 1; }
 
-  /* 이미지 저장 모달 */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 900; align-items: flex-end; justify-content: center; }
+  /* ── 이미지 모달 ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 900; align-items: flex-end; justify-content: center; }
   .modal-overlay.open { display: flex; }
   .modal-sheet {
     background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 600px;
-    max-height: 80vh; overflow-y: auto; padding: 20px 16px;
-    animation: slideup .25s ease;
+    max-height: 75vh; overflow-y: auto; padding: 20px 16px 32px;
+    animation: slideup .22s ease;
   }
-  @keyframes slideup { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-  .modal-header h2 { font-size: 1rem; font-weight: 700; }
-  .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #555; line-height: 1; }
-  .modal-zip-row { margin-bottom: 14px; }
+  @keyframes slideup { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .modal-header h2 { font-size: .95rem; font-weight: 700; }
+  .modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #aaa; line-height: 1; }
   .modal-img-list { display: flex; flex-direction: column; gap: 10px; }
   .modal-img-item { display: flex; align-items: center; gap: 10px; }
-  .modal-img-item img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #eee; cursor: pointer; flex-shrink: 0; }
-  .modal-img-item .img-info { flex: 1; font-size: .78rem; color: #555; word-break: break-all; }
-  .modal-img-item a.dl-btn { font-size: .78rem; padding: 4px 10px; flex-shrink: 0; }
-  .no-modal-img { font-size: .85rem; color: #999; text-align: center; padding: 20px 0; }
+  .modal-img-item img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid #ebebeb; cursor: pointer; flex-shrink: 0; }
+  .modal-img-item .idx { font-size: .75rem; color: #aaa; flex: 1; }
+  .modal-img-item a { font-size: .78rem; padding: 5px 12px; border-radius: 7px; flex-shrink: 0; text-decoration: none; }
+  .no-img-msg { font-size: .85rem; color: #bbb; text-align: center; padding: 24px 0; }
 
-  .toast-wrap { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-  .toast { background: #1a1a2e; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: .84rem; box-shadow: 0 4px 12px rgba(0,0,0,.25); animation: fadein .2s ease; white-space: nowrap; }
-  .toast.success { background: #198754; }
-  .toast.error   { background: #dc3545; }
-  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+  /* ── 토스트 ── */
+  .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+  .toast { background: #1c1c1e; color: #fff; padding: 9px 16px; border-radius: 10px; font-size: .82rem; box-shadow: 0 4px 16px rgba(0,0,0,.2); animation: fadein .18s ease; white-space: nowrap; }
+  .toast.ok  { background: #1c1c1e; }
+  .toast.err { background: #ff3b30; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
 </style>
 </head>
 <body>
 
-<!-- 헤더 -->
 <div class="header">
-  <h1>커뮤니티 수집기</h1>
-  <div class="queue-badge">
-    대기열 <span class="count" id="queueCount">0</span>개
-  </div>
+  <h1>블로그 발행 관리</h1>
+  <div class="queue-pill">대기 <span id="queueCount">0</span>개</div>
 </div>
 
-<!-- 툴바 -->
 <div class="toolbar">
-  <label for="batchSelect">수집 회차</label>
   <select id="batchSelect" onchange="loadBatch(this.value)">
     <option value="">— 회차 선택 —</option>
   </select>
-  <button class="btn btn-gray btn-sm" onclick="loadBatches()">새로고침</button>
-  <div class="spacer"></div>
-  <span class="sel-count" id="selCount">선택 0개</span>
-  <button class="btn btn-orange" id="queueBtn" onclick="addToQueue()" disabled>
-    대기열 추가
-  </button>
+  <button class="btn btn-ghost btn-sm" onclick="loadBatches()">↻</button>
+  <span class="sel-count" id="selCount">선택 0</span>
+  <button class="btn btn-ghost btn-sm" id="saveAllBtn" onclick="openBulkImgModal()" disabled>전체 저장</button>
+  <button class="btn btn-primary btn-sm" id="queueBtn" onclick="addToQueue()" disabled>추가</button>
 </div>
 
-<!-- 본문 -->
 <div class="content">
 
-  <!-- 대기열 패널 -->
   <div class="queue-panel" id="queuePanel" style="display:none">
-    <div class="queue-panel-header" onclick="toggleQueuePanel()">
-      <h3>📤 발행 대기열 — PC에서 <code>python naver_poster.py</code> 실행하면 자동 발행</h3>
-      <span id="queueToggleIcon">▲</span>
+    <div class="queue-header" onclick="toggleQueue()">
+      <h3>📤 발행 대기열</h3>
+      <span id="queueChevron" style="color:#bbb;font-size:.8rem">▲</span>
     </div>
-    <div class="queue-list" id="queueList"></div>
+    <div class="queue-body" id="queueList"></div>
   </div>
 
-  <!-- 수집 안내 -->
   <div class="collect-bar">
-    <p>⏰ 자동 수집: 매일 00:00 / 06:00 / 12:00 / 18:00 KST</p>
-    <button class="btn btn-gray btn-sm" id="collectNowBtn" onclick="collectNow()">지금 수집</button>
+    <p>자동 수집 00:00 / 06:00 / 12:00 / 18:00</p>
+    <button class="btn btn-ghost btn-sm" id="collectBtn" onclick="collectNow()">지금 수집</button>
   </div>
 
   <div id="postsArea">
-    <div class="empty">
-      <div class="icon">📋</div>
-      <div>위에서 수집 회차를 선택하세요.<br>회차가 없으면 <strong>지금 수집</strong>을 눌러주세요.</div>
-    </div>
+    <div class="empty">회차를 선택하거나 지금 수집을 눌러주세요.</div>
   </div>
 
 </div>
 
-<!-- 라이트박스 -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close" onclick="closeLightbox()">×</button>
-  <img id="lightboxImg" src="" alt="">
+  <button class="lb-close">×</button>
+  <img id="lbImg" src="" alt="">
 </div>
 
-<!-- 이미지 저장 모달 -->
-<div class="modal-overlay" id="imgModal" onclick="closeImgModal(event)">
+<div class="modal-overlay" id="imgModal" onclick="onModalOverlayClick(event)">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <h2 id="modalTitle">이미지 저장</h2>
-      <button class="modal-close" onclick="closeImgModal()">×</button>
+      <h2 id="modalTitle">이미지</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-dark btn-sm" id="modalSaveAllBtn" onclick="saveAllInModal()" style="display:none">전체 저장</button>
+        <button class="modal-close" onclick="closeImgModal()">×</button>
+      </div>
     </div>
-    <div class="modal-zip-row" id="modalZipRow"></div>
     <div class="modal-img-list" id="modalImgList"></div>
   </div>
 </div>
@@ -234,304 +225,286 @@
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-const SOURCE_ORDER  = ["bobaedream","todayhumor","ruliweb","instiz","inven"];
-const SOURCE_LABELS = {
-  bobaedream: "보배드림",
-  todayhumor: "오늘의유머",
-  ruliweb:    "루리웹",
-  instiz:     "인스티즈",
-  inven:      "인벤",
-};
+const SOURCE_ORDER  = ["bobaedream","todayhumor","ruliweb","instiz","inven","fmkorea"];
+const SOURCE_LABELS = { bobaedream:"보배드림", todayhumor:"오늘의유머", ruliweb:"루리웹", instiz:"인스티즈", inven:"인벤", fmkorea:"에펨코리아" };
 
-let allPosts  = [];
-let queueOpen = true;
+let allPosts   = [];
+let queueOpen  = true;
 
-// ── 초기화 ───────────────────────────────────────────────────────────────────
-window.addEventListener("DOMContentLoaded", () => {
-  loadBatches();
-  refreshQueue();
-});
+function proxyUrl(src, originalUrl) {
+  if (!originalUrl) return "";
+  return `/api/imgproxy?src=${encodeURIComponent(src)}&url=${encodeURIComponent(originalUrl)}`;
+}
 
-// ── 배치 목록 ────────────────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => { loadBatches(); refreshQueue(); });
+
+// ── 배치 ─────────────────────────────────────────────────────────────────────
 async function loadBatches() {
-  const res     = await fetch("/api/blog/batches");
-  const batches = await res.json();
+  const batches = await fetch("/api/blog/batches").then(r => r.json());
   const sel = document.getElementById("batchSelect");
   const cur = sel.value;
   sel.innerHTML = '<option value="">— 회차 선택 —</option>';
-  for (const b of batches) {
-    const dt  = b.collected_at.replace("T"," ").slice(0,16);
+  batches.forEach(b => {
     const opt = document.createElement("option");
-    opt.value       = b.batch_id;
-    opt.textContent = `${dt}  (${b.post_count}개)`;
+    opt.value = b.batch_id;
+    opt.textContent = `${b.collected_at.replace("T"," ").slice(0,16)}  (${b.post_count})`;
     sel.appendChild(opt);
-  }
+  });
   if (cur && batches.some(b => b.batch_id === cur)) sel.value = cur;
   else if (batches.length) { sel.value = batches[0].batch_id; loadBatch(batches[0].batch_id); }
 }
 
-// ── 배치 로드 ────────────────────────────────────────────────────────────────
 async function loadBatch(batchId) {
   if (!batchId) return;
   const area = document.getElementById("postsArea");
-  area.innerHTML = '<div class="empty"><div class="spinner" style="border-color:rgba(0,0,0,.2);border-top-color:#333"></div></div>';
-
-  const res = await fetch(`/api/blog/batch/${batchId}`);
-  allPosts  = await res.json();
+  area.innerHTML = '<div class="empty"><span class="spinner dark"></span></div>';
+  allPosts = await fetch(`/api/blog/batch/${batchId}`).then(r => r.json());
 
   const groups = {};
   SOURCE_ORDER.forEach(s => groups[s] = []);
   allPosts.forEach(p => { if (groups[p.source] !== undefined) groups[p.source].push(p); });
 
   area.innerHTML = "";
-  let hasAny = false;
-  for (const source of SOURCE_ORDER) {
-    if (!groups[source].length) continue;
-    hasAny = true;
-    area.appendChild(buildSection(source, groups[source]));
-  }
-  if (!hasAny) area.innerHTML = '<div class="empty"><div class="icon">📭</div><div>수집된 글이 없습니다.</div></div>';
-  updateSelCount();
+  let any = false;
+  SOURCE_ORDER.forEach(src => {
+    if (!groups[src].length) return;
+    any = true;
+    area.appendChild(buildSection(src, groups[src]));
+  });
+  if (!any) area.innerHTML = '<div class="empty">수집된 글이 없습니다.</div>';
+  updateSel();
 }
 
-// ── 커뮤니티 섹션 ────────────────────────────────────────────────────────────
+// ── 렌더링 ───────────────────────────────────────────────────────────────────
 function buildSection(source, posts) {
   const sec = document.createElement("div");
-  sec.className      = "community-section";
-  sec.dataset.source = source;
+  sec.className = "community-section";
   sec.innerHTML = `
     <div class="community-header">
       <div class="community-name">
-        ${SOURCE_LABELS[source] || source}
-        <span class="badge">TOP ${posts.length}</span>
+        ${SOURCE_LABELS[source]}
+        <span class="src-badge">TOP ${posts.length}</span>
       </div>
-      <button class="check-all-btn" onclick="toggleAll('${source}')">전체 선택/해제</button>
+      <button class="check-all" onclick="toggleAll('${source}')">전체 선택/해제</button>
     </div>
-    <div class="post-list" id="list_${source}"></div>`;
+    <div id="list_${source}"></div>`;
   const list = sec.querySelector(`#list_${source}`);
   posts.forEach(p => list.appendChild(buildCard(p)));
   return sec;
 }
 
 function buildCard(post) {
-  const card    = document.createElement("div");
-  const isQueued = post.status === "queued";
-  const isDone   = post.status === "published";
-  card.className  = "post-card" + (isQueued || isDone ? " selected" : "");
+  const card = document.createElement("div");
+  const isQ  = post.status === "queued";
+  const isDone = post.status === "published";
+  card.className  = "post-card" + (isQ || isDone ? " selected" : "");
   card.dataset.id = post.id;
 
-  const statusBadge = isQueued
-    ? '<span class="status-badge queued">📤 대기열에 추가됨</span>'
-    : isDone
-    ? '<span class="status-badge published">✔ 발행 완료</span>'
+  const imgs = (post.images || []).slice(0, 3);
+  const thumbs = imgs.length
+    ? `<div class="post-thumbs">${imgs.map(img => {
+        const px = proxyUrl(post.source, img.original);
+        return px ? `<img src="${px}" loading="lazy" onclick="openLightbox('${px}')">` : "";
+      }).filter(Boolean).join("")}</div>`
+    : `<div class="no-img">이미지 없음</div>`;
+
+  const statusTxt = isQ ? '<span class="status-dot queued">● 대기중</span>'
+    : isDone ? '<span class="status-dot published">● 발행완료</span>'
     : "";
 
   const imgCount = (post.images || []).length;
-  const imgBtn = imgCount > 0
-    ? `<button class="btn btn-blue btn-sm img-save-btn" onclick="openImgModal(${post.id})">📷 저장 ${imgCount}개</button>`
+  const imgBtnHtml = imgCount
+    ? `<button class="btn btn-ghost btn-sm img-btn" onclick="openImgModal(${post.id})">사진 ${imgCount}장</button>`
     : "";
 
   card.innerHTML = `
     <input type="checkbox" class="post-checkbox" data-id="${post.id}"
-      ${isQueued || isDone ? "checked disabled" : ""}
-      onchange="onCheck(this)">
+      ${isQ || isDone ? "checked disabled" : ""} onchange="onCheck(this)">
     <div class="post-rank ${post.rank <= 3 ? "top3" : ""}">${post.rank}</div>
     <div class="post-body">
       <div class="post-title"><a href="${post.url}" target="_blank" rel="noopener">${post.title}</a></div>
-      ${buildImgHtml(post.images)}
-      <div class="post-footer">
-        ${statusBadge}
-        ${imgBtn}
-      </div>
+      ${thumbs}
+      <div class="post-meta">${statusTxt}${imgBtnHtml}</div>
     </div>`;
   return card;
-}
-
-function buildImgHtml(images) {
-  if (!images || !images.length) return '<div class="no-image">이미지 없음</div>';
-  const tags = images.slice(0, 3).map(img => {
-    const url = img.local ? `/static/${img.local}` : img.original;
-    return url ? `<img src="${url}" alt="" loading="lazy" onclick="openLightbox('${url}')">` : "";
-  }).filter(Boolean).join("");
-  return tags ? `<div class="post-images">${tags}</div>` : '<div class="no-image">이미지 없음</div>';
-}
-
-// ── 이미지 저장 모달 ──────────────────────────────────────────────────────────
-function openImgModal(postId) {
-  const post = allPosts.find(p => p.id === postId);
-  if (!post) return;
-
-  document.getElementById("modalTitle").textContent = `이미지 저장 — ${post.title.slice(0, 30)}`;
-
-  const zipRow = document.getElementById("modalZipRow");
-  const imgList = document.getElementById("modalImgList");
-
-  const images = post.images || [];
-
-  if (images.length > 0) {
-    zipRow.innerHTML = `<a class="btn btn-navy" href="/api/blog/images/${post.id}/zip" download>📦 ZIP 전체 다운로드 (${images.length}개)</a>`;
-  } else {
-    zipRow.innerHTML = "";
-  }
-
-  if (!images.length) {
-    imgList.innerHTML = '<div class="no-modal-img">저장된 이미지가 없습니다.</div>';
-  } else {
-    imgList.innerHTML = images.map((img, i) => {
-      const viewUrl = img.local ? `/static/${img.local}` : img.original;
-      const dlUrl   = img.local ? `/static/${img.local}` : img.original;
-      const fname   = img.local ? img.local.split("/").pop() : `image_${i + 1}.jpg`;
-      return `
-        <div class="modal-img-item">
-          <img src="${viewUrl}" alt="" loading="lazy" onclick="openLightbox('${viewUrl}')">
-          <div class="img-info">${i + 1}번 이미지</div>
-          <a class="btn btn-green dl-btn" href="${dlUrl}" download="${fname}">⬇ 저장</a>
-        </div>`;
-    }).join("");
-  }
-
-  document.getElementById("imgModal").classList.add("open");
-}
-
-function closeImgModal(event) {
-  if (event && event.target !== document.getElementById("imgModal")) return;
-  document.getElementById("imgModal").classList.remove("open");
 }
 
 // ── 체크박스 ─────────────────────────────────────────────────────────────────
 function onCheck(cb) {
   cb.closest(".post-card").classList.toggle("selected", cb.checked);
-  updateSelCount();
+  updateSel();
 }
 function toggleAll(source) {
   const cbs = [...document.querySelectorAll(`#list_${source} .post-checkbox:not(:disabled)`)];
-  const all = cbs.every(cb => cb.checked);
-  cbs.forEach(cb => { cb.checked = !all; cb.closest(".post-card").classList.toggle("selected", !all); });
-  updateSelCount();
+  const all = cbs.every(c => c.checked);
+  cbs.forEach(c => { c.checked = !all; c.closest(".post-card").classList.toggle("selected", !all); });
+  updateSel();
 }
-function getSelectedIds() {
-  return [...document.querySelectorAll(".post-checkbox:checked:not(:disabled)")].map(cb => +cb.dataset.id);
+function getIds() {
+  return [...document.querySelectorAll(".post-checkbox:checked:not(:disabled)")].map(c => +c.dataset.id);
 }
-function updateSelCount() {
-  const n = getSelectedIds().length;
-  document.getElementById("selCount").textContent = `선택 ${n}개`;
+function updateSel() {
+  const n = getIds().length;
+  document.getElementById("selCount").textContent = `선택 ${n}`;
   document.getElementById("queueBtn").disabled = n === 0;
+  document.getElementById("saveAllBtn").disabled = n === 0;
 }
 
-// ── 대기열 추가 ───────────────────────────────────────────────────────────────
+// ── 대기열 ───────────────────────────────────────────────────────────────────
 async function addToQueue() {
-  const ids = getSelectedIds();
+  const ids = getIds();
   if (!ids.length) return;
-
   const btn = document.getElementById("queueBtn");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
 
-  const res  = await fetch("/api/blog/queue", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const data = await fetch("/api/blog/queue", {
+    method: "POST", headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ post_ids: ids }),
-  });
-  const data = await res.json();
+  }).then(r => r.json());
 
   if (data.ok) {
-    toast(`${data.queued}개를 대기열에 추가했습니다.`, "success");
+    toast(`${data.queued}개 추가됨`);
     ids.forEach(id => {
       const card = document.querySelector(`.post-card[data-id="${id}"]`);
-      const cb   = card && card.querySelector(".post-checkbox");
+      const cb = card?.querySelector(".post-checkbox");
       if (cb) { cb.checked = true; cb.disabled = true; }
-      const footer = card && card.querySelector(".post-footer");
-      if (footer && !footer.querySelector(".status-badge")) {
-        footer.insertAdjacentHTML("afterbegin", '<span class="status-badge queued">📤 대기열에 추가됨</span>');
-      }
+      const meta = card?.querySelector(".post-meta");
+      if (meta && !meta.querySelector(".status-dot"))
+        meta.insertAdjacentHTML("afterbegin", '<span class="status-dot queued">● 대기중</span>');
     });
     await refreshQueue();
-  } else {
-    toast(`오류: ${data.error}`, "error");
-  }
+  } else toast(data.error, "err");
 
-  btn.disabled = false;
-  btn.textContent = "대기열 추가";
-  updateSelCount();
+  btn.disabled = false; btn.textContent = "추가";
+  updateSel();
 }
 
-// ── 대기열 조회 / 렌더링 ──────────────────────────────────────────────────────
 async function refreshQueue() {
-  const res   = await fetch("/api/blog/queue");
-  const posts = await res.json();
-
+  const posts = await fetch("/api/blog/queue").then(r => r.json());
   document.getElementById("queueCount").textContent = posts.length;
-
   const panel = document.getElementById("queuePanel");
   const list  = document.getElementById("queueList");
-
-  if (!posts.length) {
-    panel.style.display = "none";
-    return;
-  }
+  if (!posts.length) { panel.style.display = "none"; return; }
   panel.style.display = "";
   list.innerHTML = posts.map(p => `
     <div class="queue-item" id="qi_${p.id}">
-      <span class="q-label">${SOURCE_LABELS[p.source] || p.source}</span>
-      <span class="q-title">${p.title.slice(0, 50)}${p.title.length > 50 ? "…" : ""}</span>
-      <button class="q-del" onclick="removeFromQueue(${p.id})" title="대기열에서 제거">✕</button>
+      <span class="q-src">${SOURCE_LABELS[p.source] || p.source}</span>
+      <span class="q-title">${p.title.slice(0,45)}${p.title.length>45?"…":""}</span>
+      <button class="q-del" onclick="removeFromQueue(${p.id})">✕</button>
     </div>`).join("");
 }
 
-async function removeFromQueue(postId) {
+async function removeFromQueue(id) {
   await fetch("/api/blog/queue/done", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ post_id: postId, undo: true }),
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ post_id: id, undo: true }),
   });
-  document.getElementById(`qi_${postId}`)?.remove();
+  document.getElementById(`qi_${id}`)?.remove();
   await refreshQueue();
-  const card = document.querySelector(`.post-card[data-id="${postId}"]`);
+  const card = document.querySelector(`.post-card[data-id="${id}"]`);
   if (card) {
     const cb = card.querySelector(".post-checkbox");
     if (cb) { cb.checked = false; cb.disabled = false; }
-    card.querySelector(".status-badge")?.remove();
+    card.querySelector(".status-dot")?.remove();
     card.classList.remove("selected");
-    updateSelCount();
+    updateSel();
   }
 }
 
-function toggleQueuePanel() {
+function toggleQueue() {
   queueOpen = !queueOpen;
   document.getElementById("queueList").style.display = queueOpen ? "" : "none";
-  document.getElementById("queueToggleIcon").textContent = queueOpen ? "▲" : "▼";
+  document.getElementById("queueChevron").textContent = queueOpen ? "▲" : "▼";
 }
 
-// ── 수동 수집 ────────────────────────────────────────────────────────────────
+// ── 수집 ─────────────────────────────────────────────────────────────────────
 async function collectNow() {
-  const btn = document.getElementById("collectNowBtn");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.2);border-top-color:#555"></span> 수집 중...';
-  toast("수집 시작! 1~2분 소요됩니다.");
+  const btn = document.getElementById("collectBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner dark"></span>';
+  toast("수집 시작...");
   try {
-    const res  = await fetch("/api/blog/collect", { method: "POST" });
-    const data = await res.json();
-    if (data.ok) { toast("수집 완료!", "success"); await loadBatches(); }
-    else toast(`실패: ${data.error}`, "error");
-  } catch (e) { toast(`오류: ${e.message}`, "error"); }
-  btn.disabled = false;
-  btn.textContent = "지금 수집";
+    const data = await fetch("/api/blog/collect", { method: "POST" }).then(r => r.json());
+    if (data.ok) { toast("수집 완료"); await loadBatches(); }
+    else toast(data.error, "err");
+  } catch(e) { toast(e.message, "err"); }
+  btn.disabled = false; btn.textContent = "지금 수집";
 }
 
-// ── 라이트박스 / 토스트 ───────────────────────────────────────────────────────
-function openLightbox(url) {
-  document.getElementById("lightboxImg").src = url;
-  document.getElementById("lightbox").classList.add("open");
+// ── 전체 이미지 저장 (선택된 포스트 전체) ─────────────────────────────────────
+function openBulkImgModal() {
+  const ids = getIds();
+  const posts = allPosts.filter(p => ids.includes(p.id));
+  const allImgs = posts.flatMap(p =>
+    (p.images || []).map((img, i) => ({ post: p, img, idx: i + 1 }))
+  ).filter(({ img }) => img.original);
+
+  document.getElementById("modalTitle").textContent = `전체 이미지 — ${posts.length}개 글 / ${allImgs.length}장`;
+
+  document.getElementById("modalImgList").innerHTML = allImgs.length
+    ? allImgs.map(({ post, img, idx }) => {
+        const orig  = img.original;
+        const px    = proxyUrl(post.source, orig);
+        const fname = orig.split("/").pop().split("?")[0] || `image_${idx}.jpg`;
+        return `<div class="modal-img-item">
+          <img src="${px}" loading="lazy" onclick="openLightbox('${px}')">
+          <span class="idx">${SOURCE_LABELS[post.source]} ${post.rank}위 ${idx}번</span>
+          <a class="btn btn-dark" href="${px}" download="${fname}">저장</a>
+        </div>`;
+      }).join("")
+    : '<div class="no-img-msg">선택된 글에 이미지가 없습니다.</div>';
+
+  document.getElementById("modalSaveAllBtn").style.display = allImgs.length > 1 ? "" : "none";
+  document.getElementById("imgModal").classList.add("open");
 }
-function closeLightbox() {
-  document.getElementById("lightbox").classList.remove("open");
+
+function saveAllInModal() {
+  const links = document.querySelectorAll("#modalImgList a.btn");
+  links.forEach((a, i) => {
+    setTimeout(() => {
+      const tmp = document.createElement("a");
+      tmp.href = a.href; tmp.download = a.download;
+      document.body.appendChild(tmp); tmp.click(); document.body.removeChild(tmp);
+    }, i * 600);
+  });
+  toast(`${links.length}장 저장 중...`);
 }
+
+// ── 이미지 모달 ───────────────────────────────────────────────────────────────
+function openImgModal(postId) {
+  const post = allPosts.find(p => p.id === postId);
+  if (!post) return;
+  document.getElementById("modalTitle").textContent = post.title.slice(0, 28) + (post.title.length > 28 ? "…" : "");
+  const images = post.images || [];
+  document.getElementById("modalImgList").innerHTML = images.length
+    ? images.map((img, i) => {
+        const orig = img.original;
+        const px   = proxyUrl(post.source, orig);
+        const fname = orig ? orig.split("/").pop().split("?")[0] || `image_${i+1}.jpg` : `image_${i+1}.jpg`;
+        return `<div class="modal-img-item">
+          <img src="${px}" loading="lazy" onclick="openLightbox('${px}')">
+          <span class="idx">${i+1}번</span>
+          <a class="btn btn-dark" href="${px}" download="${fname}">저장</a>
+        </div>`;
+      }).join("")
+    : '<div class="no-img-msg">이미지가 없습니다.</div>';
+  document.getElementById("modalSaveAllBtn").style.display = images.length > 1 ? "" : "none";
+  document.getElementById("imgModal").classList.add("open");
+}
+
+function closeImgModal() { document.getElementById("imgModal").classList.remove("open"); }
+function onModalOverlayClick(e) { if (e.target === document.getElementById("imgModal")) closeImgModal(); }
+
+// ── 라이트박스 ────────────────────────────────────────────────────────────────
+function openLightbox(url) { document.getElementById("lbImg").src = url; document.getElementById("lightbox").classList.add("open"); }
+function closeLightbox()   { document.getElementById("lightbox").classList.remove("open"); }
+
+// ── 토스트 ───────────────────────────────────────────────────────────────────
 function toast(msg, type) {
   const el = document.createElement("div");
-  el.className = "toast " + (type || "");
+  el.className = "toast " + (type || "ok");
   el.textContent = msg;
   document.getElementById("toastWrap").appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  setTimeout(() => el.remove(), 3000);
 }
 </script>
 </body>
